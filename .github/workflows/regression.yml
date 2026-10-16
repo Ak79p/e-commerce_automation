@@ -1,0 +1,163 @@
+name: Regression tests (sharded)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: Number of parallel Playwright shards
+        required: false
+        default: '4'
+
+# The one place to change the shard count (a manual run can override it with the "shards" input).
+env:
+  SHARD_TOTAL: ${{ inputs.shards || '4' }}
+
+concurrency:
+  group: regression-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan shards
+    runs-on: ubuntu-latest
+    outputs:
+      total: ${{ steps.matrix.outputs.total }}
+      shards: ${{ steps.matrix.outputs.shards }}
+    steps:
+      - id: matrix
+        run: |
+          total="$SHARD_TOTAL"
+          if ! [[ "$total" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::SHARD_TOTAL must be a positive integer, got '$total'"
+            exit 1
+          fi
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+          echo "shards=[$(seq -s, 1 "$total")]" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Shard ${{ matrix.shard }} of ${{ needs.plan.outputs.total }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    env:
+      CI: true
+      # Blob report for merging, and an output directory unique to this shard.
+      PW_BLOB_REPORT: true
+      PW_ARTIFACTS_DIR: artifacts/shard-${{ matrix.shard }}
+      TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+    steps:
+      - name: Check test credentials are configured
+        run: |
+          if [ -z "$TEST_USER_EMAIL" ] || [ -z "$TEST_USER_PASSWORD" ]; then
+            echo "::error::Add the repository secrets TEST_USER_EMAIL and TEST_USER_PASSWORD (the seeded demo account)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tests/playwright/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install test dependencies
+        working-directory: tests/playwright
+        run: npm ci
+
+      # Chromium: desktop + Pixel 7 emulation; WebKit: iPhone 14 emulation.
+      - name: Install Chromium, WebKit and their OS dependencies
+        working-directory: tests/playwright
+        run: npx playwright install --with-deps chromium webkit
+
+      # `npm test` selects the desktop and both mobile projects. Each shard runs the setup project (sign-in state)
+      # itself, then only its own slice of the tests.
+      - name: Run shard ${{ matrix.shard }}/${{ needs.plan.outputs.total }}
+        working-directory: tests/playwright
+        run: npm test -- --shard=${{ matrix.shard }}/${{ needs.plan.outputs.total }}
+
+      - name: Upload blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: tests/playwright/artifacts/shard-${{ matrix.shard }}/blob-report/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload failure artifacts (traces, screenshots, videos)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-shard-${{ matrix.shard }}
+          path: tests/playwright/artifacts/shard-${{ matrix.shard }}/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  merge-reports:
+    name: Merge reports
+    needs: [plan, test]
+    # Runs even when a shard fails, so the merged report shows what failed.
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/playwright/package-lock.json
+
+      - name: Install test dependencies
+        working-directory: tests/playwright
+        run: npm ci
+
+      - name: Download shard blob reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: blob-report-*
+          merge-multiple: true
+          path: tests/playwright/all-blob-reports
+
+      - name: Merge into one HTML and JSON report
+        working-directory: tests/playwright
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: merged-report/html
+          PLAYWRIGHT_HTML_OPEN: never
+          PLAYWRIGHT_JSON_OUTPUT_NAME: merged-report/results.json
+        run: npx playwright merge-reports --reporter=html,json ./all-blob-reports
+
+      - name: Summarise desktop and mobile results
+        working-directory: tests/playwright
+        run: node scripts/summarize-results.mjs merged-report/results.json "Regression (all shards, desktop + mobile)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload merged regression report
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-report
+          path: tests/playwright/merged-report/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Fail if any shard failed
+        if: ${{ needs.test.result != 'success' }}
+        run: |
+          echo "::error::One or more shards failed (result: ${{ needs.test.result }}). See the merged regression report."
+          exit 1

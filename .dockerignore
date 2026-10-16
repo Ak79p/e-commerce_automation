@@ -1,0 +1,18 @@
+# Installed inside the image from the lockfiles; host copies may be for another OS.
+**/node_modules
+dist
+
+# Local-only and generated files
+.git
+.github
+.qa
+.claude
+**/.env
+**/.env.local
+*.local
+**/.auth
+**/artifacts
+**/test-results
+**/playwright-report
+**/blob-report
+.DS_Store

@@ -1,0 +1,74 @@
+name: Smoke tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+      PW_ARTIFACTS_DIR: artifacts/smoke
+      TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+    steps:
+      - name: Check test credentials are configured
+        run: |
+          if [ -z "$TEST_USER_EMAIL" ] || [ -z "$TEST_USER_PASSWORD" ]; then
+            echo "::error::Add the repository secrets TEST_USER_EMAIL and TEST_USER_PASSWORD (the seeded demo account)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tests/playwright/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install test dependencies
+        working-directory: tests/playwright
+        run: npm ci
+
+      # Chromium: desktop + Pixel 7 emulation; WebKit: iPhone 14 emulation.
+      - name: Install Chromium, WebKit and their OS dependencies
+        working-directory: tests/playwright
+        run: npx playwright install --with-deps chromium webkit
+
+      # Playwright starts the app (npm run dev) itself via the webServer block in playwright.config.ts.
+      - name: Run smoke tests (desktop + mobile)
+        working-directory: tests/playwright
+        run: npm run test:smoke
+
+      - name: Summarise desktop and mobile results
+        if: ${{ !cancelled() }}
+        working-directory: tests/playwright
+        run: node scripts/summarize-results.mjs "$PW_ARTIFACTS_DIR/results.json" "Smoke tests (desktop + mobile)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload smoke report and failure artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report-attempt-${{ github.run_attempt }}
+          path: |
+            tests/playwright/artifacts/smoke/
+            !tests/playwright/artifacts/smoke/.auth/
+          if-no-files-found: warn
+          retention-days: 14

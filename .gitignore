@@ -2,3 +2,21 @@ node_modules
 dist
 *.local
 .DS_Store
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Generated test output (reports, traces, screenshots, videos, saved sessions)
+artifacts/
+test-results/
+playwright-report/
+blob-report/
+.auth/
+
+# Local QA tooling workspace and assistant/agent scratch files (never part of the repository)
+.qa/
+.claude/
+*.log
+tmp/
