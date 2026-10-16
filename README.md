@@ -88,6 +88,16 @@ In PowerShell, use `${PWD}` instead of `$(pwd)`.
 | Docker volume path errors on Windows (Git Bash) | Prefix the command with `MSYS_NO_PATHCONV=1` and use `"$(pwd -W)/artifacts:/app/tests/playwright/artifacts"`. |
 | `npm ci` fails | Use Node 20.19+ or 22.12+, and run it in the directory that holds the matching `package-lock.json`. |
 
+## Test case manager
+
+`test-manager/` is a small local web app (Node 18+, no dependencies) for browsing, adding and tracking the test
+cases. Its catalogue is `test-manager/data/catalogue.json`.
+
+```bash
+cd test-manager
+npm start        # → http://127.0.0.1:5180  ("Add test case" saves to data/catalogue.json)
+```
+
 CI needs the repository secrets `TEST_USER_EMAIL` and `TEST_USER_PASSWORD`. `.github/workflows/smoke.yml` runs the smoke tests on pull requests and pushes to `main`.
 `.github/workflows/regression.yml` runs the full suite in parallel shards and publishes one merged report. Test
 framework details are in [`tests/playwright/README.md`](tests/playwright/README.md).

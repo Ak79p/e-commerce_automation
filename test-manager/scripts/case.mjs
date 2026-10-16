@@ -1,0 +1,164 @@
+#!/usr/bin/env node
+// Command-line access to the test catalogue (data/catalogue.json). Works whether or not the web
+// server is running.
+//
+//   node test-manager/scripts/case.mjs show CART-UI-001           full case as JSON
+//   node test-manager/scripts/case.mjs placement CART-UI-001      the required file, projects, tags and run command
+//   node test-manager/scripts/case.mjs list [--layer UI] [--status planned] [--result "not run"]
+//   node test-manager/scripts/case.mjs update CART-UI-001 \
+//        --automation-status automated \
+//        --script-path tests/playwright/ui/cart-ui.spec.ts \
+//        --result passed --executed today \
+//        --note "npx playwright test --grep CART-UI-001 → 1 passed"
+//   node test-manager/scripts/case.mjs fingerprint CART-UI-001    requirement fingerprint to record in a plan
+//   node test-manager/scripts/case.mjs plan CART-UI-001           plan status + freshness of tests/plans/<ID>.md
+//
+// Exit codes: 0 ok (plan: fresh, or no plan) · 1 usage/validation error · 2 id not found · 3 id duplicated · 4 plan stale
+
+import { ID_PATTERN, placementFor, validateTest } from '../lib/catalogue.mjs';
+import { mutateCatalogue, readCatalogue } from '../lib/store.mjs';
+import { parsePlan, planFreshness, requirementFingerprint } from '../lib/plans.mjs';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+
+const UPDATE_FLAGS = {
+  '--automation-status': 'automationStatus',
+  '--script-path': 'scriptPath',
+  '--result': 'latestResult',
+  '--executed': 'lastExecuted',
+  '--notes': 'notes',
+};
+
+function fail(message, code = 1) {
+  console.error(message);
+  process.exit(code);
+}
+
+function localDate(d = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function localTimestamp(d = new Date()) {
+  const offset = -d.getTimezoneOffset();
+  const sign = offset >= 0 ? '+' : '-';
+  const hh = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+  const mm = String(Math.abs(offset) % 60).padStart(2, '0');
+  return `${localDate(d)} ${d.toTimeString().slice(0, 5)} UTC${sign}${hh}:${mm}`;
+}
+
+/** Exact, case-sensitive lookup. Never falls back to a "close enough" ID. */
+function resolveCase(doc, id) {
+  const hits = doc.tests.filter((t) => t.id === id);
+  if (hits.length === 1) return hits[0];
+  if (hits.length > 1) fail(`Test case ${id} is duplicated (${hits.length} entries). Fix the catalogue before continuing.`, 3);
+
+  const upper = id.toUpperCase();
+  const prefix = upper.split('-').slice(0, 2).join('-');
+  const similar = doc.tests.map((t) => t.id).filter((x) => x.toUpperCase() === upper || x.startsWith(`${prefix}-`));
+  const hint = similar.length ? `\nIDs with the same prefix: ${similar.join(', ')}` : '';
+  const format = ID_PATTERN.test(id) ? '' : `\n"${id}" does not match the ID format ${ID_PATTERN}.`;
+  fail(`Test case ${id} was not found in test-manager/data/catalogue.json.${format}${hint}\nNo case was assumed or created.`, 2);
+}
+
+function parseFlags(args) {
+  const out = {};
+  for (let i = 0; i < args.length; i += 2) {
+    const flag = args[i];
+    const value = args[i + 1];
+    if (value === undefined) fail(`Missing value for ${flag}`);
+    out[flag] = value;
+  }
+  return out;
+}
+
+async function show(id) {
+  const doc = await readCatalogue();
+  console.log(JSON.stringify(resolveCase(doc, id), null, 2));
+}
+
+// The only source for where a case's automation lives; never choose a path by judgment.
+async function placement(id) {
+  const t = resolveCase(await readCatalogue(), id);
+  const p = placementFor(t.id);
+  if (t.layer === 'Performance') {
+    console.log(JSON.stringify({ id: t.id, layer: t.layer, ...p, command: `cd tests/k6 && k6 run --no-usage-report --vus 1 --iterations 1 scripts/${t.id}.js` }, null, 2));
+    return;
+  }
+  // Mobile (MOB) cases run once per emulated device; everything else in the desktop "ui" project.
+  const projects = t.layer === 'API' ? ['api'] : t.id.startsWith('MOB-') ? ['mobile-chrome', 'mobile-safari'] : ['ui'];
+  const file = p.scriptPath.replace('tests/playwright/', '');
+  const projectArgs = projects.map((x) => `--project=${x}`).join(' ');
+  console.log(JSON.stringify({ id: t.id, layer: t.layer, ...p, projects, command: `cd tests/playwright && npx playwright test ${file} ${projectArgs} --grep ${t.id} --reporter=list` }, null, 2));
+}
+
+async function list(args) {
+  const flags = parseFlags(args);
+  const doc = await readCatalogue();
+  const rows = doc.tests.filter(
+    (t) =>
+      (!flags['--layer'] || t.layer === flags['--layer']) &&
+      (!flags['--status'] || t.automationStatus === flags['--status']) &&
+      (!flags['--result'] || t.latestResult === flags['--result']),
+  );
+  for (const t of rows) {
+    console.log([t.id.padEnd(14), t.layer.padEnd(12), t.priority, t.automationStatus.padEnd(12), t.latestResult.padEnd(8), t.title].join('  '));
+  }
+  console.log(`${rows.length} of ${doc.tests.length} test cases`);
+}
+
+async function update(id, args) {
+  const flags = parseFlags(args);
+  const allowed = new Set([...Object.keys(UPDATE_FLAGS), '--note']);
+  const unknown = Object.keys(flags).filter((f) => !allowed.has(f));
+  if (unknown.length) fail(`Unknown flag(s): ${unknown.join(', ')}. Allowed: ${[...allowed].join(', ')}`);
+  if (!Object.keys(flags).length) fail('Nothing to update.');
+
+  const changes = {};
+  for (const [flag, field] of Object.entries(UPDATE_FLAGS)) if (flag in flags) changes[field] = flags[flag];
+  if (changes.lastExecuted === 'today') changes.lastExecuted = localDate();
+  if (changes.lastExecuted === 'none') changes.lastExecuted = null;
+
+  const updated = await mutateCatalogue((doc) => {
+    const current = resolveCase(doc, id);
+    const next = { ...current, ...changes, updatedAt: new Date().toISOString() };
+    // --note appends a timestamped line and preserves existing notes (including the user's).
+    if (flags['--note']) next.notes = [next.notes, `[${localTimestamp()}] ${flags['--note']}`].filter(Boolean).join('\n');
+    const errors = validateTest(next);
+    if (errors.length) fail(`Update rejected; catalogue unchanged:\n  - ${errors.join('\n  - ')}`);
+    doc.tests[doc.tests.indexOf(current)] = next;
+    return next;
+  });
+  const { id: savedId, automationStatus, scriptPath, latestResult, lastExecuted, notes } = updated;
+  console.log(JSON.stringify({ id: savedId, automationStatus, scriptPath, latestResult, lastExecuted, notes }, null, 2));
+}
+
+async function fingerprint(id) {
+  console.log(requirementFingerprint(resolveCase(await readCatalogue(), id)));
+}
+
+// Staleness depends only on the requirement fields (lib/plans.mjs), never on tracking updates.
+async function plan(id) {
+  const t = resolveCase(await readCatalogue(), id);
+  const planFile = `tests/plans/${t.id}.md`;
+  let markdown;
+  try {
+    markdown = await readFile(fileURLToPath(new URL(`../../${planFile}`, import.meta.url)), 'utf8');
+  } catch {
+    console.log(JSON.stringify({ id: t.id, planFile: null, fingerprint: requirementFingerprint(t) }, null, 2));
+    return;
+  }
+  const parsed = parsePlan(markdown);
+  const freshness = planFreshness(parsed, t);
+  console.log(JSON.stringify({ id: t.id, planFile, planStatus: parsed.status, ...freshness }, null, 2));
+  if (!freshness.fresh) process.exit(4);
+}
+
+const [command, id, ...rest] = process.argv.slice(2);
+if (command === 'show' && id) await show(id);
+else if (command === 'placement' && id) await placement(id);
+else if (command === 'list') await list([id, ...rest].filter((x) => x !== undefined));
+else if (command === 'update' && id) await update(id, rest);
+else if (command === 'fingerprint' && id) await fingerprint(id);
+else if (command === 'plan' && id) await plan(id);
+else fail('Usage: case.mjs show <ID> | placement <ID> | list [--layer L] [--status S] [--result R] | update <ID> [--automation-status S] [--script-path P] [--result R] [--executed YYYY-MM-DD|today|none] [--notes TEXT] [--note TEXT] | fingerprint <ID> | plan <ID>');
