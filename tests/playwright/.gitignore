@@ -1,0 +1,9 @@
+node_modules/
+# Generated reports, traces, screenshots, videos and the saved session (PW_ARTIFACTS_DIR).
+artifacts/
+test-results/
+playwright-report/
+blob-report/
+.env
+# Generated signed-in storage state (session token). Never commit.
+.auth/
