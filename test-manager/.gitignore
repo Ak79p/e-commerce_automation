@@ -1,0 +1,3 @@
+# Previous catalogue version and in-flight writes (lib/store.mjs)
+data/catalogue.backup.json
+data/*.tmp

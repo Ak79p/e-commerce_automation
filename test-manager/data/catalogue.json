@@ -1,0 +1,1790 @@
+{
+  "schemaVersion": 1,
+  "application": "ShopNest e-commerce demo",
+  "updatedAt": "2026-10-16T08:35:49.444Z",
+  "tests": [
+    {
+      "id": "AUTH-UI-001",
+      "title": "Sign-up with valid details creates the account and signs the user in",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "A new shopper can register and is signed in immediately.",
+      "risk": "New customers cannot create accounts and so cannot check out.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context (seeded state, signed out, no registered users)."
+      ],
+      "testData": [
+        "Full name \"QA Tester\".",
+        "Email: generate a unique value of the form qa.<timestamp>@shopnest.test and record it.",
+        "Password and confirmation: TEST_NEW_USER_PASSWORD (8 to 64 characters)."
+      ],
+      "steps": [
+        "Open /register.",
+        "Fill signup-name with \"QA Tester\", signup-email with the generated email, signup-password and signup-confirm-password with TEST_NEW_USER_PASSWORD.",
+        "Click signup-submit.",
+        "Read localStorage key shopnest:v1:session."
+      ],
+      "expectedResults": [
+        "Step 1: The page heading is \"Create your account\" and signup-form is visible.",
+        "Step 3: The URL becomes /, a toast reads \"Account created. Welcome to ShopNest, QA!\", user-greeting reads \"Hello, QA\", logout-button is visible and login-link is not shown.",
+        "Step 4: The session has userId \"USR-1001\"."
+      ],
+      "references": [
+        "src/pages/RegisterPage.tsx:38-41",
+        "src/services/authService.ts:78-98",
+        "src/components/Header.tsx:87-88"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/auth-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/auth-ui.spec.ts --project=ui --grep AUTH-UI-001 --reporter=list |   2 passed (4.1s)",
+      "updatedAt": "2026-10-16T03:35:38.133Z"
+    },
+    {
+      "id": "AUTH-UI-002",
+      "title": "Sign-up with an already registered email (different case) is rejected",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Registration refuses an email that already exists, compared case-insensitively.",
+      "risk": "Duplicate accounts let one email map to two users, breaking login and order ownership.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out."
+      ],
+      "testData": [
+        "Email: TEST_USER_EMAIL (seeded Demo User) converted to upper case.",
+        "Full name \"QA Tester\".",
+        "Password and confirmation: TEST_NEW_USER_PASSWORD."
+      ],
+      "steps": [
+        "Open /register.",
+        "Fill signup-name, signup-email (upper-cased TEST_USER_EMAIL), signup-password and signup-confirm-password.",
+        "Click signup-submit."
+      ],
+      "expectedResults": [
+        "Step 3: signup-email-error reads \"An account with this email already exists.\", signup-email has aria-invalid=\"true\", signup-error is not shown, the URL stays /register and login-link is still visible in the header."
+      ],
+      "references": [
+        "src/services/authService.ts:30-33",
+        "src/services/authService.ts:83-87",
+        "src/pages/RegisterPage.tsx:43-46",
+        "src/components/FormField.tsx:34"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/auth-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/auth-ui.spec.ts --project=ui --grep AUTH-UI-002 --reporter=list |   2 passed (3.7s)",
+      "updatedAt": "2026-10-16T03:35:38.554Z"
+    },
+    {
+      "id": "AUTH-UI-003",
+      "title": "Sign-up with all fields empty shows a required error on every field",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Submitting an empty sign-up form reports every required field and focuses the first one.",
+      "risk": "Shoppers get no guidance and blank accounts could be attempted.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out."
+      ],
+      "testData": [
+        "All four fields left empty."
+      ],
+      "steps": [
+        "Open /register.",
+        "Click signup-submit without typing anything."
+      ],
+      "expectedResults": [
+        "Step 2: signup-name-error reads \"Name is required.\", signup-email-error reads \"Email is required.\", signup-password-error reads \"Password is required.\", signup-confirm-password-error reads \"Please confirm your password.\".",
+        "Step 2: signup-name has keyboard focus, the URL stays /register and localStorage key shopnest:v1:session is absent."
+      ],
+      "references": [
+        "src/lib/validation.ts:43-62",
+        "src/pages/RegisterPage.tsx:33-36",
+        "src/hooks/useForm.ts:84-89"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/auth-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/auth-ui.spec.ts --project=ui --grep AUTH-UI-003 --reporter=list |   2 passed (3.5s)",
+      "updatedAt": "2026-10-16T03:35:38.966Z"
+    },
+    {
+      "id": "AUTH-UI-004",
+      "title": "Sign-up field rules: name length, email format, password length and confirmation match",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Each sign-up field enforces its format and length rules at the boundaries.",
+      "risk": "Accounts are created with unusable names, emails or weak passwords, or valid input is refused.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out."
+      ],
+      "testData": [
+        "Name \" A \" (1 character after trim), then \"Al\".",
+        "Email \"qa.user@shopnest\" (no dot suffix), then \"qa.user@shopnest.test\".",
+        "Password 7 characters \"Abcd@12\", 8 characters \"Abcd@123\", 64 characters (\"a\" x 64), 65 characters (\"a\" x 65).",
+        "Confirmation \"Abcd@1235\" against password \"Abcd@1234\"."
+      ],
+      "steps": [
+        "Open /register.",
+        "Type \" A \" in signup-name and move focus away; then replace it with \"Al\".",
+        "Type \"qa.user@shopnest\" in signup-email and move focus away; then replace it with \"qa.user@shopnest.test\".",
+        "Type the 7-character password in signup-password and move focus away; then replace it with the 8-character, the 64-character and the 65-character values in turn.",
+        "Set signup-password to \"Abcd@1234\", type \"Abcd@1235\" in signup-confirm-password and click signup-submit."
+      ],
+      "expectedResults": [
+        "Step 2: signup-name-error first reads \"Name must be at least 2 characters.\" and is gone after \"Al\".",
+        "Step 3: signup-email-error first reads \"Enter a valid email address.\" and is gone after the valid email.",
+        "Step 4: signup-password-error reads \"Password must be at least 8 characters.\" for 7, is absent for 8 and 64, and reads \"Password must be at most 64 characters.\" for 65.",
+        "Step 5: signup-confirm-password-error reads \"Passwords do not match.\", the URL stays /register and localStorage key shopnest:v1:session is absent."
+      ],
+      "references": [
+        "src/lib/validation.ts:8-12",
+        "src/lib/validation.ts:43-62",
+        "src/hooks/useForm.ts:40-49"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/auth-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/auth-ui.spec.ts --project=ui --grep AUTH-UI-004 --reporter=list |   2 passed (4.0s)",
+      "updatedAt": "2026-10-16T03:35:39.391Z"
+    },
+    {
+      "id": "AUTH-UI-005",
+      "title": "Login with valid credentials signs the user in",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "A registered shopper can sign in with email and password.",
+      "risk": "Existing customers cannot access checkout or their orders.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out.",
+        "TEST_USER_EMAIL / TEST_USER_PASSWORD are the seeded Demo User (USR-0001)."
+      ],
+      "testData": [
+        "TEST_USER_EMAIL, TEST_USER_PASSWORD."
+      ],
+      "steps": [
+        "Open /login.",
+        "Fill login-email with TEST_USER_EMAIL and login-password with TEST_USER_PASSWORD.",
+        "Click login-submit.",
+        "Read localStorage key shopnest:v1:session."
+      ],
+      "expectedResults": [
+        "Step 1: The page heading is \"Sign in\".",
+        "Step 3: The URL becomes /, a toast reads \"Welcome back, Demo!\", user-greeting reads \"Hello, Demo\", orders-link and logout-button are visible, login-link is not shown.",
+        "Step 4: The session has userId \"USR-0001\" and token \"demo-token-USR-0001\"."
+      ],
+      "references": [
+        "src/pages/LoginPage.tsx:36-39",
+        "src/services/authService.ts:39-42",
+        "src/services/authService.ts:65-75"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/auth-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:11 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/auth-ui.spec.ts --project=ui --grep AUTH-UI-005 --reporter=list |   2 passed (3.8s)",
+      "updatedAt": "2026-10-16T03:41:19.364Z"
+    },
+    {
+      "id": "AUTH-UI-006",
+      "title": "Login with a wrong-case password or an unregistered email shows the same generic error",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "Wrong credentials are refused with one generic message that does not reveal whether the account exists.",
+      "risk": "Accounts can be accessed with a wrong password, or attackers can enumerate registered emails.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out."
+      ],
+      "testData": [
+        "TEST_USER_EMAIL with TEST_USER_PASSWORD converted to lower case (must differ from the original).",
+        "Email \"nobody.qa@shopnest.test\" (not registered) with TEST_USER_PASSWORD."
+      ],
+      "steps": [
+        "Open /login.",
+        "Fill login-email with TEST_USER_EMAIL and login-password with the lower-cased password; click login-submit.",
+        "Replace login-email with \"nobody.qa@shopnest.test\" and login-password with TEST_USER_PASSWORD; click login-submit."
+      ],
+      "expectedResults": [
+        "Step 2: login-error reads \"Invalid email or password.\", the URL stays /login, login-link is visible and localStorage key shopnest:v1:session is absent.",
+        "Step 3: login-error reads \"Invalid email or password.\", login-email-error is not present and localStorage key shopnest:v1:session is absent."
+      ],
+      "references": [
+        "src/services/authService.ts:69-72",
+        "src/pages/LoginPage.tsx:41-43",
+        "README.md:47"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/auth-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/auth-ui.spec.ts --project=ui --grep AUTH-UI-006 --reporter=list |   2 passed (4.0s)",
+      "updatedAt": "2026-10-16T03:35:39.783Z"
+    },
+    {
+      "id": "AUTH-UI-007",
+      "title": "Login with empty or malformed fields shows field errors and does not submit",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Email and password are required, and the email must be well-formed, before the login request is made.",
+      "risk": "Shoppers get no guidance on what is missing.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out."
+      ],
+      "testData": [
+        "Both fields empty; then email \"demo@shopnest\" (invalid format)."
+      ],
+      "steps": [
+        "Open /login.",
+        "Click login-submit with both fields empty.",
+        "Type \"demo@shopnest\" in login-email."
+      ],
+      "expectedResults": [
+        "Step 2: login-email-error reads \"Email is required.\", login-password-error reads \"Password is required.\", login-error is not shown and login-email has keyboard focus.",
+        "Step 3: login-email-error reads \"Enter a valid email address.\"."
+      ],
+      "references": [
+        "src/lib/validation.ts:71-77",
+        "src/pages/LoginPage.tsx:31-34",
+        "src/hooks/useForm.ts:40-49"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/auth-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/auth-ui.spec.ts --project=ui --grep AUTH-UI-007 --reporter=list |   2 passed (3.3s)",
+      "updatedAt": "2026-10-16T03:35:40.231Z"
+    },
+    {
+      "id": "AUTH-UI-008",
+      "title": "Opening a protected page signed out redirects to login and back after sign-in",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "Protected routes require sign-in and return the user to the requested page afterwards.",
+      "risk": "Anonymous users reach account pages, or signed-in users lose their place.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out."
+      ],
+      "testData": [
+        "TEST_USER_EMAIL, TEST_USER_PASSWORD."
+      ],
+      "steps": [
+        "Open /orders.",
+        "Sign in with TEST_USER_EMAIL and TEST_USER_PASSWORD via login-email, login-password and login-submit."
+      ],
+      "expectedResults": [
+        "Step 1: The URL becomes /login?redirect=%2Forders and the \"Sign in\" heading is shown.",
+        "Step 2: The URL becomes /orders and the heading reads \"My Orders\"."
+      ],
+      "references": [
+        "src/components/RequireAuth.tsx:6-13",
+        "src/App.tsx:51-58",
+        "src/pages/LoginPage.tsx:25",
+        "src/pages/OrdersPage.tsx:14"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.423Z"
+    },
+    {
+      "id": "AUTH-UI-009",
+      "title": "Login ignores external and protocol-relative redirect targets",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "The redirect parameter cannot send a signed-in user to another origin.",
+      "risk": "An open redirect lets phishing links bounce users to attacker sites after login.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out."
+      ],
+      "testData": [
+        "redirect=https%3A%2F%2Fexample.com",
+        "redirect=%2F%2Fexample.com",
+        "TEST_USER_EMAIL, TEST_USER_PASSWORD."
+      ],
+      "steps": [
+        "Open /login?redirect=https%3A%2F%2Fexample.com and sign in with the test user.",
+        "Click logout-button.",
+        "Open /login?redirect=%2F%2Fexample.com and sign in with the test user."
+      ],
+      "expectedResults": [
+        "Step 1: The page stays on the BASE_URL origin and the path is /.",
+        "Step 3: The page stays on the BASE_URL origin and the path is /."
+      ],
+      "references": [
+        "src/lib/redirect.ts:5-10",
+        "src/pages/LoginPage.tsx:17-18"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "AUTH-UI-010",
+      "title": "Signed-in session survives reload and sign-out ends it",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "The session persists across reloads until the user signs out.",
+      "risk": "Users are logged out unexpectedly, or sign-out leaves the session active on shared devices.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context; signed in as TEST_USER_EMAIL."
+      ],
+      "testData": [
+        "TEST_USER_EMAIL, TEST_USER_PASSWORD."
+      ],
+      "steps": [
+        "Reload the page on /.",
+        "Click logout-button.",
+        "Open /orders."
+      ],
+      "expectedResults": [
+        "Step 1: user-greeting still reads \"Hello, Demo\".",
+        "Step 2: The URL is /, a toast reads \"You have been signed out.\", login-link and register-link are visible, user-greeting is not shown and localStorage key shopnest:v1:session is absent.",
+        "Step 3: The URL becomes /login?redirect=%2Forders."
+      ],
+      "references": [
+        "src/context/AuthContext.tsx:17-18",
+        "src/components/Header.tsx:63-70",
+        "src/services/authService.ts:101-109"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "SRCH-UI-001",
+      "title": "Header search matches product names partially and case-insensitively",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "A partial upper-case query finds the matching product by name.",
+      "risk": "Shoppers cannot find products and sales are lost.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context."
+      ],
+      "testData": [
+        "Query \"HEAD\" (matches only PROD-001 Wireless Headphones)."
+      ],
+      "steps": [
+        "Open /.",
+        "Type \"HEAD\" in product-search.",
+        "Click search-submit."
+      ],
+      "expectedResults": [
+        "Step 3: The URL is /products?q=HEAD, product-search still has value \"HEAD\", listing-heading reads 'Search results for \"HEAD\"', results-count reads \"1 product\", and product-grid contains only product-card-PROD-001."
+      ],
+      "references": [
+        "src/components/Header.tsx:13-25",
+        "src/services/productService.ts:21-26",
+        "src/pages/ProductListPage.tsx:17",
+        "src/pages/ProductListPage.tsx:51"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/srch-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:11 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/srch-ui.spec.ts --project=ui --grep SRCH-UI-001 --reporter=list |   2 passed (3.8s)",
+      "updatedAt": "2026-10-16T03:41:18.210Z"
+    },
+    {
+      "id": "SRCH-UI-002",
+      "title": "Search matches on brand name and on category name",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Queries are matched against brand and category name as well as product name.",
+      "risk": "Shoppers searching by brand or category see no results.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context."
+      ],
+      "testData": [
+        "Query \"sonicleaf\" (brand of PROD-001 and PROD-006).",
+        "Query \"books\" (category Books: PROD-016 to PROD-019)."
+      ],
+      "steps": [
+        "Open /, type \"sonicleaf\" in product-search and click search-submit.",
+        "Replace the product-search value with \"books\" and click search-submit."
+      ],
+      "expectedResults": [
+        "Step 1: results-count reads \"2 products\" and product-grid contains exactly product-card-PROD-001 and product-card-PROD-006.",
+        "Step 2: results-count reads \"4 products\" and product-grid contains exactly product-card-PROD-016, PROD-017, PROD-018 and PROD-019."
+      ],
+      "references": [
+        "src/services/productService.ts:21-26",
+        "src/data/products.ts:25",
+        "src/data/products.ts:84",
+        "README.md:111"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "SRCH-UI-003",
+      "title": "Search with no matches shows the no-results state",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "A query with no matches shows a clear empty state with a way back to all products.",
+      "risk": "Shoppers see a blank page and leave.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context."
+      ],
+      "testData": [
+        "Query \"zzqx\"."
+      ],
+      "steps": [
+        "Open /.",
+        "Type \"zzqx\" in product-search and click search-submit.",
+        "Click clear-search."
+      ],
+      "expectedResults": [
+        "Step 2: results-count reads \"0 products\", no-results shows \"No products found\" and the text 'We couldn't find any products matching \"zzqx\"', and product-grid is not present.",
+        "Step 3: The URL is /products, listing-heading reads \"All Products\" and results-count reads \"24 products\"."
+      ],
+      "references": [
+        "src/pages/ProductListPage.tsx:90-110",
+        "src/data/products.ts:20"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/srch-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:12 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/srch-ui.spec.ts --project=ui --grep SRCH-UI-003 --reporter=list |   2 passed (4.3s)",
+      "updatedAt": "2026-10-16T03:42:15.615Z"
+    },
+    {
+      "id": "SRCH-UI-004",
+      "title": "Search trims the query; a blank query shows all products",
+      "layer": "UI",
+      "priority": "P2",
+      "objective": "Surrounding spaces are ignored and a whitespace-only query goes to the full listing.",
+      "risk": "Queries pasted with spaces return nothing, or an accidental empty search shows an error.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context."
+      ],
+      "testData": [
+        "Query \"  laptop  \" (matches PROD-005 and PROD-020).",
+        "Query of three spaces."
+      ],
+      "steps": [
+        "Open /, type \"  laptop  \" in product-search and click search-submit.",
+        "Replace the product-search value with three spaces and click search-submit."
+      ],
+      "expectedResults": [
+        "Step 1: The URL is /products?q=laptop, results-count reads \"2 products\" and product-grid contains exactly product-card-PROD-005 and product-card-PROD-020.",
+        "Step 2: The URL is /products with no q parameter, listing-heading reads \"All Products\" and results-count reads \"24 products\"."
+      ],
+      "references": [
+        "src/components/Header.tsx:21-25",
+        "src/services/productService.ts:22-23",
+        "src/pages/ProductListPage.tsx:17"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "PROD-UI-001",
+      "title": "Selecting a product from the listing opens its details page with the correct data",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "The details page shows the correct data for the selected product.",
+      "risk": "Shoppers see wrong prices or details and buy the wrong item.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context."
+      ],
+      "testData": [
+        "PROD-001 Wireless Headphones, price 2999, stock 25."
+      ],
+      "steps": [
+        "Open /products.",
+        "Click product-link-PROD-001."
+      ],
+      "expectedResults": [
+        "Step 2: The URL is /product/PROD-001, product-title reads \"Wireless Headphones\", product-id reads \"PROD-001\", product-price reads \"₹2,999\" with data-price=\"2999\", and product-availability reads \"In stock\"."
+      ],
+      "references": [
+        "src/components/ProductCard.tsx:30-32",
+        "src/pages/ProductDetailsPage.tsx:52-60",
+        "src/components/ProductMeta.tsx:8-9",
+        "src/components/ProductMeta.tsx:24-32",
+        "README.md:73"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/prod-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/prod-ui.spec.ts --project=ui --grep PROD-UI-001 --reporter=list |   2 passed (4.0s)",
+      "updatedAt": "2026-10-16T03:35:41.056Z"
+    },
+    {
+      "id": "PROD-UI-002",
+      "title": "Unknown product ID shows the product-not-found state",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "A bad product link shows a clear not-found message.",
+      "risk": "Broken links show a crash or an empty page.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context."
+      ],
+      "testData": [
+        "Product ID \"PROD-999\"."
+      ],
+      "steps": [
+        "Open /product/PROD-999."
+      ],
+      "expectedResults": [
+        "Step 1: product-not-found is visible with the heading \"Product not found\" and the text 'No product found with ID \"PROD-999\".'"
+      ],
+      "references": [
+        "src/services/productService.ts:56-60",
+        "src/pages/ProductDetailsPage.tsx:152-164"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "PROD-UI-003",
+      "title": "Out-of-stock product cannot be added to the cart",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Out-of-stock products have a disabled add button and no quantity selector.",
+      "risk": "Shoppers order items that cannot be delivered.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, empty cart."
+      ],
+      "testData": [
+        "PROD-008 USB-C Power Bank, stock 0."
+      ],
+      "steps": [
+        "Open /product/PROD-008."
+      ],
+      "expectedResults": [
+        "Step 1: product-availability reads \"Out of stock\", add-to-cart-PROD-008 is disabled and reads \"Out of stock\", product-quantity is not present, the text \"This item is currently unavailable.\" is shown and cart-count reads \"0\"."
+      ],
+      "references": [
+        "src/pages/ProductDetailsPage.tsx:63-64",
+        "src/pages/ProductDetailsPage.tsx:88-96",
+        "README.md:80"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "PROD-UI-004",
+      "title": "Adding a chosen quantity from the details page updates the cart",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "The selected quantity is added to the cart and confirmed on the page.",
+      "risk": "Customers buy the wrong quantity.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, empty cart."
+      ],
+      "testData": [
+        "PROD-001, quantity 3."
+      ],
+      "steps": [
+        "Open /product/PROD-001.",
+        "Select 3 in product-quantity.",
+        "Click add-to-cart-PROD-001."
+      ],
+      "expectedResults": [
+        "Step 3: add-to-cart-success reads \"Added 3 × Wireless Headphones to your cart.\", cart-count reads \"3\", in-cart-quantity reads \"3 already in your cart.\", go-to-cart reads \"Go to cart (3)\" and product-quantity resets to 1."
+      ],
+      "references": [
+        "src/pages/ProductDetailsPage.tsx:31-41",
+        "src/pages/ProductDetailsPage.tsx:97-107"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/prod-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/prod-ui.spec.ts --project=ui --grep PROD-UI-004 --reporter=list |   2 passed (5.6s)",
+      "updatedAt": "2026-10-16T03:35:41.517Z"
+    },
+    {
+      "id": "CART-UI-001",
+      "title": "Adding a product from the listing puts it in the cart with correct totals",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "Add to cart from the listing creates a cart line with correct price and totals.",
+      "risk": "Customers cannot buy, or are charged wrong amounts.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, empty cart."
+      ],
+      "testData": [
+        "PROD-004 Stainless Steel Water Bottle, price 649."
+      ],
+      "steps": [
+        "Open /products.",
+        "Click add-to-cart-PROD-004.",
+        "Click cart-link."
+      ],
+      "expectedResults": [
+        "Step 2: A toast reads \"Added Stainless Steel Water Bottle to your cart.\", cart-count reads \"1\" and in-cart-PROD-004 reads \"1 in cart\".",
+        "Step 3: The URL is /cart; cart-item-PROD-004 is the only line; cart-item-price-PROD-004 has data-amount=\"649\"; cart-quantity-PROD-004 has value 1; cart-subtotal has data-amount=\"649\"; cart-delivery reads \"FREE\" with data-amount=\"0\"; cart-total has data-amount=\"649\"."
+      ],
+      "references": [
+        "src/components/ProductCard.tsx:16-20",
+        "src/pages/CartPage.tsx:26-64",
+        "src/components/OrderSummary.tsx:28-43"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/cart-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/cart-ui.spec.ts --project=ui --grep CART-UI-001 --reporter=list |   2 passed (5.2s)",
+      "updatedAt": "2026-10-16T03:35:41.953Z"
+    },
+    {
+      "id": "CART-UI-002",
+      "title": "Increase and decrease buttons update quantity and totals; decrease disables at 1",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "The quantity stepper changes the line and the totals at once.",
+      "risk": "Customers are charged for the wrong quantity.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context; cart holds PROD-004 x1 (added with add-to-cart-PROD-004 on /products)."
+      ],
+      "testData": [
+        "PROD-004, price 649."
+      ],
+      "steps": [
+        "Open /cart.",
+        "Click cart-increase-PROD-004.",
+        "Click cart-decrease-PROD-004."
+      ],
+      "expectedResults": [
+        "Step 1: cart-decrease-PROD-004 is disabled.",
+        "Step 2: cart-quantity-PROD-004 has value 2, cart-item-subtotal-PROD-004 and cart-total have data-amount=\"1298\" and cart-count reads \"2\".",
+        "Step 3: cart-quantity-PROD-004 has value 1, cart-total has data-amount=\"649\" and cart-decrease-PROD-004 is disabled."
+      ],
+      "references": [
+        "src/components/QuantityControl.tsx:56-94",
+        "src/lib/pricing.ts:8-12"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/cart-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/cart-ui.spec.ts --project=ui --grep CART-UI-002 --reporter=list |   2 passed (6.5s)",
+      "updatedAt": "2026-10-16T03:35:42.384Z"
+    },
+    {
+      "id": "CART-UI-003",
+      "title": "Delivery fee boundary: 40 INR below 499, free at exactly 499",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "Delivery is charged only when the subtotal is under 499 INR.",
+      "risk": "Customers are over- or under-charged for delivery.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, empty cart."
+      ],
+      "testData": [
+        "PROD-017 The Monsoon Garden, price 349.",
+        "PROD-009 Cotton Crew T-Shirt, price 499."
+      ],
+      "steps": [
+        "Add PROD-017 from /products (add-to-cart-PROD-017) and open /cart.",
+        "Click remove-from-cart-PROD-017, add PROD-009 from /products (add-to-cart-PROD-009) and open /cart."
+      ],
+      "expectedResults": [
+        "Step 1: cart-subtotal has data-amount=\"349\", cart-delivery reads \"₹40\" with data-amount=\"40\", cart-total has data-amount=\"389\" and cart-delivery-note reads \"Add ₹150 more for free delivery.\".",
+        "Step 2: cart-subtotal has data-amount=\"499\", cart-delivery reads \"FREE\" with data-amount=\"0\", cart-total has data-amount=\"499\" and cart-delivery-note is not present."
+      ],
+      "references": [
+        "src/lib/pricing.ts:4-12",
+        "src/components/OrderSummary.tsx:32-49",
+        "README.md:120-122"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/cart-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/cart-ui.spec.ts --project=ui --grep CART-UI-003 --reporter=list |   2 passed (6.0s)",
+      "updatedAt": "2026-10-16T03:35:42.816Z"
+    },
+    {
+      "id": "CART-UI-004",
+      "title": "Removing the last item shows the empty-cart state",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Remove deletes the line and an empty cart is shown clearly.",
+      "risk": "Customers cannot remove unwanted items and order them by mistake.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context; cart holds PROD-004 x1 (added with add-to-cart-PROD-004 on /products)."
+      ],
+      "testData": [
+        "PROD-004 Stainless Steel Water Bottle."
+      ],
+      "steps": [
+        "Open /cart.",
+        "Click remove-from-cart-PROD-004."
+      ],
+      "expectedResults": [
+        "Step 2: A toast reads \"Removed Stainless Steel Water Bottle from your cart.\", cart-item-PROD-004 is not present, empty-cart shows \"Your cart is empty\", continue-shopping links to /products and cart-count reads \"0\"."
+      ],
+      "references": [
+        "src/pages/CartPage.tsx:20-23",
+        "src/pages/CartPage.tsx:77-87"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/cart-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/cart-ui.spec.ts --project=ui --grep CART-UI-004 --reporter=list |   2 passed (4.8s)",
+      "updatedAt": "2026-10-16T03:35:55.303Z"
+    },
+    {
+      "id": "CART-UI-005",
+      "title": "Typed cart quantity: 0, decimals and values above 10 are rejected; 10 is accepted",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Typed quantities must be whole numbers from 1 to min(stock, 10); invalid values show an error and revert.",
+      "risk": "Orders exceed the per-item limit or invalid quantities corrupt totals.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context; cart holds PROD-004 x2 (stock 50; added with add-to-cart-PROD-004 on /products twice)."
+      ],
+      "testData": [
+        "Typed values \"0\", \"2.5\", \"11\", \"10\"."
+      ],
+      "steps": [
+        "Open /cart.",
+        "Replace cart-quantity-PROD-004 with \"0\" and press Enter.",
+        "Replace cart-quantity-PROD-004 with \"2.5\" and press Enter.",
+        "Replace cart-quantity-PROD-004 with \"11\" and press Enter.",
+        "Replace cart-quantity-PROD-004 with \"10\" and press Enter."
+      ],
+      "expectedResults": [
+        "Step 2: cart-quantity-PROD-004-error reads \"Quantity must be at least 1.\" and the input reverts to 2.",
+        "Step 3: cart-quantity-PROD-004-error reads \"Enter a whole number.\" and the input reverts to 2.",
+        "Step 4: cart-quantity-PROD-004-error reads \"You can buy at most 10 of this item.\", the input reverts to 2 and cart-total has data-amount=\"1298\".",
+        "Step 5: cart-quantity-PROD-004 has value 10, cart-total has data-amount=\"6490\", cart-increase-PROD-004 is disabled and cart-max-PROD-004 reads \"Maximum quantity: 10\"."
+      ],
+      "references": [
+        "src/lib/config.ts:14",
+        "src/lib/validation.ts:139-146",
+        "src/components/QuantityControl.tsx:32-51",
+        "src/components/QuantityControl.tsx:89-105"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/cart-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/cart-ui.spec.ts --project=ui --grep CART-UI-005 --reporter=list |   2 passed (4.8s)",
+      "updatedAt": "2026-10-16T03:35:43.672Z"
+    },
+    {
+      "id": "CART-UI-006",
+      "title": "Adding a low-stock product past its stock from the listing is refused",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Repeated add-to-cart stops at the available stock with a clear error.",
+      "risk": "Customers order units that do not exist.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, empty cart."
+      ],
+      "testData": [
+        "PROD-011 Leather Belt, stock 3."
+      ],
+      "steps": [
+        "Open /products.",
+        "Click add-to-cart-PROD-011 three times.",
+        "Click add-to-cart-PROD-011 a fourth time."
+      ],
+      "expectedResults": [
+        "Step 2: cart-count reads \"3\" and in-cart-PROD-011 reads \"3 in cart\".",
+        "Step 3: An error toast (data-tone=\"error\") reads \"Only 3 units of Leather Belt available. You already have 3 in your cart.\" and cart-count still reads \"3\"."
+      ],
+      "references": [
+        "src/services/cartService.ts:37-41",
+        "src/services/cartService.ts:69-74",
+        "src/components/ProductCard.tsx:16-20"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "CART-UI-007",
+      "title": "Cart is kept across reload, sign-in and sign-out",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "The cart is stored per browser and survives reloads and auth changes.",
+      "risk": "Customers lose their cart when they sign in to check out.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out; cart holds PROD-004 x2 (added with add-to-cart-PROD-004 on /products twice)."
+      ],
+      "testData": [
+        "TEST_USER_EMAIL, TEST_USER_PASSWORD."
+      ],
+      "steps": [
+        "Reload /cart.",
+        "Sign in with the test user.",
+        "Click logout-button and open /cart."
+      ],
+      "expectedResults": [
+        "Step 1: cart-quantity-PROD-004 has value 2 and cart-count reads \"2\".",
+        "Step 2: cart-count reads \"2\".",
+        "Step 3: cart-item-PROD-004 is present with quantity 2."
+      ],
+      "references": [
+        "src/context/CartContext.tsx:20",
+        "src/services/cartService.ts:1-4",
+        "src/services/authService.ts:101-109",
+        "README.md:115"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/cart-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/cart-ui.spec.ts --project=ui --grep CART-UI-007 --reporter=list |   2 passed (5.6s)",
+      "updatedAt": "2026-10-16T03:35:44.071Z"
+    },
+    {
+      "id": "CHK-UI-001",
+      "title": "Signed-in shopper places a Cash on Delivery order and the confirmation shows the same totals",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "The full checkout places an order whose totals, including delivery, match what was shown.",
+      "risk": "No orders can be placed, or customers are charged a different amount from the one shown.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context (no orders yet); signed in as TEST_USER_EMAIL; cart holds PROD-017 x1 (price 349)."
+      ],
+      "testData": [
+        "Phone \"9876543210\", address \"12 MG Road, Indiranagar\", city \"Bengaluru\", state \"Karnataka\", PIN \"560038\"."
+      ],
+      "steps": [
+        "Open /checkout.",
+        "Fill checkout-phone, checkout-address, checkout-city, select checkout-state \"Karnataka\" and fill checkout-postal-code with the test data.",
+        "Click checkout-submit.",
+        "Click view-orders."
+      ],
+      "expectedResults": [
+        "Step 1: checkout-full-name has value \"Demo User\", checkout-email equals TEST_USER_EMAIL, checkout-subtotal has data-amount=\"349\", checkout-delivery has data-amount=\"40\", checkout-total has data-amount=\"389\", payment-method mentions \"Cash on Delivery\" and checkout-submit reads \"Place order · ₹389\".",
+        "Step 3: The URL becomes /order-confirmation/ORD-100001, order-id reads \"ORD-100001\", order-item-PROD-017 is present, order-subtotal has data-amount=\"349\", order-delivery has data-amount=\"40\", order-total has data-amount=\"389\", order-shipping-address contains \"Demo User\", \"12 MG Road, Indiranagar\", \"Bengaluru, Karnataka 560038\" and \"Phone: 9876543210\", a toast reads \"Order ORD-100001 placed successfully.\" and cart-count reads \"0\".",
+        "Step 4: The URL is /orders and order-row-ORD-100001 is present."
+      ],
+      "references": [
+        "src/pages/CheckoutPage.tsx:33-50",
+        "src/pages/CheckoutPage.tsx:144",
+        "src/services/orderService.ts:45-91",
+        "src/services/checkoutService.ts:12-28",
+        "src/pages/OrderConfirmationPage.tsx:10-85",
+        "src/lib/pricing.ts:4-12"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-001 --reporter=list |   2 passed (5.4s)",
+      "updatedAt": "2026-10-16T03:35:44.456Z"
+    },
+    {
+      "id": "CHK-UI-002",
+      "title": "Signed-out shopper proceeding to checkout must sign in and returns to checkout with the cart kept",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "Checkout requires sign-in and the cart survives the detour through login.",
+      "risk": "Anonymous orders are placed, or shoppers lose their cart and abandon the purchase.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out; cart holds PROD-004 x1 (added with add-to-cart-PROD-004 on /products)."
+      ],
+      "testData": [
+        "TEST_USER_EMAIL, TEST_USER_PASSWORD."
+      ],
+      "steps": [
+        "Open /cart.",
+        "Click proceed-to-checkout.",
+        "Sign in with the test user via login-email, login-password and login-submit."
+      ],
+      "expectedResults": [
+        "Step 1: checkout-login-note reads \"You'll be asked to sign in before checkout. Your cart will be saved.\".",
+        "Step 2: The URL is /login?redirect=%2Fcheckout and login-required-notice reads \"Please sign in to continue to checkout. Your cart has been saved.\".",
+        "Step 3: The URL is /checkout, checkout-form is visible, checkout-item-PROD-004 is present and cart-count reads \"1\"."
+      ],
+      "references": [
+        "src/components/RequireAuth.tsx:6-13",
+        "src/pages/LoginPage.tsx:52-56",
+        "src/pages/CartPage.tsx:111-115",
+        "README.md:126"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-002 --reporter=list |   2 passed (4.6s)",
+      "updatedAt": "2026-10-16T03:35:44.840Z"
+    },
+    {
+      "id": "CHK-UI-003",
+      "title": "Checkout with an empty cart shows the empty-cart message and no form",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "An order cannot be started without items.",
+      "risk": "Empty orders are submitted.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context; signed in as TEST_USER_EMAIL; empty cart."
+      ],
+      "testData": [
+        "None."
+      ],
+      "steps": [
+        "Open /checkout."
+      ],
+      "expectedResults": [
+        "Step 1: checkout-empty-cart shows \"Your cart is empty\" and \"Add at least one item to your cart before checking out.\", and checkout-form is not present."
+      ],
+      "references": [
+        "src/pages/CheckoutPage.tsx:196-206"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-003 --reporter=list |   2 passed (3.5s)",
+      "updatedAt": "2026-10-16T03:35:45.219Z"
+    },
+    {
+      "id": "CHK-UI-004",
+      "title": "Submitting checkout with empty fields shows the error summary and every required message",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "No order is placed until all shipping fields are filled.",
+      "risk": "Orders are placed without a deliverable address.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context (no orders); signed in as TEST_USER_EMAIL; cart holds PROD-004 x1."
+      ],
+      "testData": [
+        "All shipping fields empty (clear the pre-filled name and email)."
+      ],
+      "steps": [
+        "Open /checkout.",
+        "Clear checkout-full-name and checkout-email.",
+        "Click checkout-submit."
+      ],
+      "expectedResults": [
+        "Step 3: checkout-error-summary reads \"Please correct the highlighted fields before placing your order.\"; checkout-full-name-error \"Full name is required.\", checkout-email-error \"Email is required.\", checkout-phone-error \"Phone number is required.\", checkout-address-error \"Address is required.\", checkout-city-error \"City is required.\", checkout-state-error \"State is required.\", checkout-postal-code-error \"Postal code is required.\".",
+        "Step 3: checkout-full-name has keyboard focus, the URL stays /checkout, cart-count reads \"1\" and localStorage key shopnest:v1:orders is absent."
+      ],
+      "references": [
+        "src/lib/validation.ts:81-116",
+        "src/pages/CheckoutPage.tsx:36-41",
+        "src/pages/CheckoutPage.tsx:72-76"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-004 --reporter=list |   2 passed (4.3s)",
+      "updatedAt": "2026-10-16T03:35:45.609Z"
+    },
+    {
+      "id": "CHK-UI-005",
+      "title": "Checkout field format rules: phone, PIN code, city and address line",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Each shipping field rejects invalid formats at its boundary and accepts valid variants.",
+      "risk": "Orders ship to undeliverable addresses or couriers cannot reach the customer for Cash on Delivery.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context; signed in as TEST_USER_EMAIL; cart holds PROD-004 x1."
+      ],
+      "testData": [
+        "Phone \"5876543210\" (starts with 5), \"987654321\" (9 digits), \"98765-43210\" (valid with hyphen).",
+        "PIN \"060001\" (leading zero), \"56000\" (5 digits), \"560001\" (valid).",
+        "City \"Bengaluru1\", then \"St. John's-Wood\".",
+        "Address \"12 A\" (4 characters), then \"12 AB\" (5 characters)."
+      ],
+      "steps": [
+        "Open /checkout.",
+        "Type \"5876543210\" in checkout-phone and move focus away; replace it with \"987654321\"; then with \"98765-43210\".",
+        "Type \"060001\" in checkout-postal-code and move focus away; replace it with \"56000\"; then with \"560001\".",
+        "Type \"Bengaluru1\" in checkout-city and move focus away; replace it with \"St. John's-Wood\".",
+        "Type \"12 A\" in checkout-address and move focus away; replace it with \"12 AB\"."
+      ],
+      "expectedResults": [
+        "Step 2: checkout-phone-error reads \"Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9.\" for the first two values and is gone for \"98765-43210\".",
+        "Step 3: checkout-postal-code-error reads \"Enter a valid 6-digit PIN code.\" for \"060001\" and \"56000\" and is gone for \"560001\".",
+        "Step 4: checkout-city-error reads \"City can only contain letters, spaces and . ' -\" for \"Bengaluru1\" and is gone for \"St. John's-Wood\".",
+        "Step 5: checkout-address-error reads \"Address must be at least 5 characters.\" for \"12 A\" and is gone for \"12 AB\"."
+      ],
+      "references": [
+        "src/lib/validation.ts:14-16",
+        "src/lib/validation.ts:26-28",
+        "src/lib/validation.ts:92-112",
+        "src/hooks/useForm.ts:40-49"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-005 --reporter=list |   2 passed (4.4s)",
+      "updatedAt": "2026-10-16T03:35:46.016Z"
+    },
+    {
+      "id": "CHK-UI-006",
+      "title": "Checkout draft survives reload and a round trip to the cart",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Typed shipping details are kept while the shopper moves around.",
+      "risk": "Shoppers lose typed details and abandon checkout.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context; signed in as TEST_USER_EMAIL; cart holds PROD-004 x1."
+      ],
+      "testData": [
+        "Phone \"9876543210\", city \"Bengaluru\"."
+      ],
+      "steps": [
+        "Open /checkout and fill checkout-phone and checkout-city.",
+        "Reload the page.",
+        "Click back-to-cart, then click proceed-to-checkout."
+      ],
+      "expectedResults": [
+        "Step 2: checkout-phone has value \"9876543210\" and checkout-city has value \"Bengaluru\".",
+        "Step 3: The URL is /checkout, checkout-phone has value \"9876543210\" and checkout-city has value \"Bengaluru\"."
+      ],
+      "references": [
+        "src/pages/CheckoutPage.tsx:28-31",
+        "src/services/checkoutService.ts:24-32"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-006 --reporter=list |   2 passed (4.7s)",
+      "updatedAt": "2026-10-16T03:35:46.407Z"
+    },
+    {
+      "id": "CHK-UI-007",
+      "title": "Signing out discards the checkout draft but keeps the cart",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "A user's typed shipping details are removed on sign-out.",
+      "risk": "Personal address data stays on a shared device after sign-out.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context; signed in as TEST_USER_EMAIL; cart holds PROD-004 x1."
+      ],
+      "testData": [
+        "Phone \"9876543210\"."
+      ],
+      "steps": [
+        "Open /checkout and fill checkout-phone with \"9876543210\".",
+        "Click logout-button.",
+        "Sign in again with the test user and open /checkout."
+      ],
+      "expectedResults": [
+        "Step 2: localStorage key shopnest:v1:checkoutDraft:USR-0001 is absent and cart-count reads \"1\".",
+        "Step 3: checkout-phone is empty, checkout-full-name has value \"Demo User\" and checkout-item-PROD-004 is present."
+      ],
+      "references": [
+        "src/services/authService.ts:101-109",
+        "src/services/checkoutService.ts:12-28"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "CHK-UI-008",
+      "title": "A user cannot view another user's order confirmation",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "Order details are visible only to the user who placed the order.",
+      "risk": "Customers see other customers' names, addresses and phone numbers.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context (no orders).",
+        "In this context, TEST_USER_EMAIL has placed order ORD-100001 (cart PROD-004 x1, valid shipping details as in the happy-path checkout case) and then signed out.",
+        "TEST_USER2_EMAIL / TEST_USER2_PASSWORD are the seeded Priya Sharma account (USR-0002)."
+      ],
+      "testData": [
+        "TEST_USER2_EMAIL, TEST_USER2_PASSWORD; order ID ORD-100001."
+      ],
+      "steps": [
+        "Sign in with TEST_USER2_EMAIL and TEST_USER2_PASSWORD.",
+        "Open /order-confirmation/ORD-100001.",
+        "Open /orders."
+      ],
+      "expectedResults": [
+        "Step 2: order-not-found shows \"Order not found\" and the text 'Order \"ORD-100001\" was not found.', and order-confirmation is not present.",
+        "Step 3: order-row-ORD-100001 is not present."
+      ],
+      "references": [
+        "src/services/orderService.ts:95-111",
+        "src/pages/OrderConfirmationPage.tsx:100-112"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "CHK-UI-009",
+      "title": "Back after placing an order goes to the cart, not the checkout",
+      "layer": "UI",
+      "priority": "P2",
+      "objective": "The confirmation replaces checkout in history, so Back cannot return to the submitted form.",
+      "risk": "Shoppers return to a checkout form and believe the order was not placed.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context (no orders); signed in as TEST_USER_EMAIL; cart holds PROD-004 x1; navigated /cart, then clicked proceed-to-checkout."
+      ],
+      "testData": [
+        "Phone \"9876543210\", address \"12 MG Road, Indiranagar\", city \"Bengaluru\", state \"Karnataka\", PIN \"560038\"."
+      ],
+      "steps": [
+        "Fill all shipping fields and click checkout-submit.",
+        "Press the browser Back button."
+      ],
+      "expectedResults": [
+        "Step 1: The URL is /order-confirmation/ORD-100001.",
+        "Step 2: The URL is /cart and empty-cart is visible."
+      ],
+      "references": [
+        "src/pages/CheckoutPage.tsx:46",
+        "README.md:146"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-009 --reporter=list |   2 passed (5.1s)",
+      "updatedAt": "2026-10-16T03:35:46.810Z"
+    },
+    {
+      "id": "CHK-UI-010",
+      "title": "Double-clicking Place order creates only one order",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "The submit button is disabled while the order is being placed, so a double click does not create two orders.",
+      "risk": "Customers receive and pay for duplicate orders.",
+      "preconditions": [
+        "App running at BASE_URL with the default mock latency (VITE_MOCK_LATENCY_MS not 0).",
+        "Fresh browser context (no orders); signed in as TEST_USER_EMAIL; cart holds PROD-004 x1."
+      ],
+      "testData": [
+        "Phone \"9876543210\", address \"12 MG Road, Indiranagar\", city \"Bengaluru\", state \"Karnataka\", PIN \"560038\"."
+      ],
+      "steps": [
+        "Open /checkout and fill all shipping fields.",
+        "Double-click checkout-submit.",
+        "Open /orders."
+      ],
+      "expectedResults": [
+        "Step 2: checkout-submit becomes disabled and reads \"Placing order…\" before the URL changes to /order-confirmation/ORD-100001.",
+        "Step 3: order-row-ORD-100001 is present and order-row-ORD-100002 is not present."
+      ],
+      "references": [
+        "src/pages/CheckoutPage.tsx:33-43",
+        "src/pages/CheckoutPage.tsx:137-145",
+        "src/lib/config.ts:3-10"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "planned",
+      "scriptPath": "",
+      "latestResult": "not run",
+      "lastExecuted": null,
+      "notes": "",
+      "updatedAt": "2026-10-15T17:28:21.424Z"
+    },
+    {
+      "id": "NAV-UI-001",
+      "title": "Header and in-page links move between home, listing, product, cart, checkout and orders",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "The main navigation links lead to the right pages along the shopping journey.",
+      "risk": "Broken links strand shoppers mid-journey and block purchases.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context; signed in as TEST_USER_EMAIL; empty cart."
+      ],
+      "testData": [
+        "Category electronics (5 products: PROD-001, 002, 006, 007, 008); product PROD-001."
+      ],
+      "steps": [
+        "Open / and click category-link-electronics.",
+        "Click product-link-PROD-001.",
+        "Click add-to-cart-PROD-001, then click go-to-cart.",
+        "Click proceed-to-checkout.",
+        "Click back-to-cart.",
+        "Click continue-shopping.",
+        "Click brand-link.",
+        "Click cart-link.",
+        "Click orders-link."
+      ],
+      "expectedResults": [
+        "Step 1: The URL is /products?category=electronics, listing-heading reads \"Electronics\" and results-count reads \"5 products\".",
+        "Step 2: The URL is /product/PROD-001 and product-title reads \"Wireless Headphones\".",
+        "Step 3: The URL is /cart and cart-item-PROD-001 is present.",
+        "Step 4: The URL is /checkout and checkout-form is visible.",
+        "Step 5: The URL is /cart.",
+        "Step 6: The URL is /products and listing-heading reads \"All Products\".",
+        "Step 7: The URL is / and home-page is visible.",
+        "Step 8: The URL is /cart and the heading reads \"Shopping Cart\".",
+        "Step 9: The URL is /orders and the heading reads \"My Orders\"."
+      ],
+      "references": [
+        "src/components/CategoryNav.tsx:24-33",
+        "src/components/Header.tsx:75-126",
+        "src/pages/ProductDetailsPage.tsx:97-101",
+        "src/pages/CartPage.tsx:96-109",
+        "src/pages/CheckoutPage.tsx:146-148",
+        "src/pages/HomePage.tsx:16",
+        "src/pages/OrdersPage.tsx:14"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/nav-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:11 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/nav-ui.spec.ts --project=ui --grep NAV-UI-001 --reporter=list |   2 passed (4.7s)",
+      "updatedAt": "2026-10-16T03:41:18.600Z"
+    },
+    {
+      "id": "CHK-UI-011",
+      "title": "Browser Back from checkout returns to the intact cart and Forward restores the typed shipping draft",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Browser Back/Forward between cart and checkout before ordering keeps the cart and the partially typed shipping details.",
+      "risk": "Shoppers who step back to review the cart lose their cart or have to retype shipping details, and abandon checkout.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context (no orders, no checkout draft); signed in as TEST_USER_EMAIL / TEST_USER_PASSWORD (seeded Demo User, USR-0001).",
+        "Cart holds PROD-004 Stainless Steel Water Bottle x1 (price 649), added with add-to-cart-PROD-004 on /products."
+      ],
+      "testData": [
+        "TEST_USER_EMAIL, TEST_USER_PASSWORD.",
+        "Partial shipping draft: phone \"9876543210\", address \"12 MG Road, Indiranagar\", city \"Bengaluru\", state \"Karnataka\"; postal code left empty."
+      ],
+      "steps": [
+        "Open /cart.",
+        "Click proceed-to-checkout.",
+        "Fill checkout-phone \"9876543210\", checkout-address \"12 MG Road, Indiranagar\", checkout-city \"Bengaluru\" and select \"Karnataka\" in checkout-state; leave checkout-postal-code empty and do not submit.",
+        "Press the browser Back button.",
+        "Press the browser Forward button."
+      ],
+      "expectedResults": [
+        "Step 1: The URL is /cart, cart-item-PROD-004 is present and cart-count reads \"1\".",
+        "Step 2: The URL is /checkout, checkout-form is visible, checkout-full-name has value \"Demo User\" and checkout-email equals TEST_USER_EMAIL.",
+        "Step 4: The URL is /cart, cart-item-PROD-004 is present, cart-quantity-PROD-004 has value 1, cart-subtotal has data-amount=\"649\", cart-delivery reads \"FREE\" with data-amount=\"0\", cart-total has data-amount=\"649\" and cart-count reads \"1\".",
+        "Step 5: The URL is /checkout, checkout-form is visible, checkout-full-name has value \"Demo User\", checkout-email equals TEST_USER_EMAIL, checkout-phone has value \"9876543210\", checkout-address has value \"12 MG Road, Indiranagar\", checkout-city has value \"Bengaluru\", checkout-state has value \"Karnataka\", checkout-postal-code is empty, checkout-error-summary is not shown, checkout-item-PROD-004 is present and checkout-total has data-amount=\"649\"."
+      ],
+      "references": [
+        "src/pages/CartPage.tsx:108",
+        "src/pages/CheckoutPage.tsx:26-31",
+        "src/pages/CheckoutPage.tsx:57",
+        "src/services/checkoutService.ts:12-32",
+        "src/lib/pricing.ts:4-12",
+        "README.md:143"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-011 --reporter=list |   2 passed (4.4s)",
+      "updatedAt": "2026-10-16T03:35:47.198Z"
+    },
+    {
+      "id": "CHK-UI-012",
+      "title": "Signed-out shopper redirected from checkout to login can press Back to the cart without a redirect loop",
+      "layer": "UI",
+      "priority": "P2",
+      "objective": "The /checkout to /login redirect replaces the history entry, so browser Back from login returns to the cart instead of bouncing back to login.",
+      "risk": "Signed-out shoppers get trapped on the login page when they go back and cannot return to their cart.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context, signed out; cart holds PROD-004 x1 (added with add-to-cart-PROD-004 on /products)."
+      ],
+      "testData": [
+        "Product PROD-004 Stainless Steel Water Bottle, quantity 1."
+      ],
+      "steps": [
+        "Open /cart.",
+        "Click proceed-to-checkout.",
+        "Press the browser Back button.",
+        "Press the browser Forward button."
+      ],
+      "expectedResults": [
+        "Step 1: The URL is /cart, cart-item-PROD-004 is present and checkout-login-note is visible.",
+        "Step 2: The URL is /login?redirect=%2Fcheckout and login-required-notice reads \"Please sign in to continue to checkout. Your cart has been saved.\".",
+        "Step 3: The URL is /cart and remains /cart (no redirect back to /login), the heading reads \"Shopping Cart\", cart-item-PROD-004 is present, cart-count reads \"1\" and checkout-login-note is visible.",
+        "Step 4: The URL is /login?redirect=%2Fcheckout (the replaced entry; /checkout itself is not in history) and login-required-notice is visible."
+      ],
+      "references": [
+        "src/components/RequireAuth.tsx:9-12",
+        "src/pages/CartPage.tsx:108-115",
+        "src/pages/LoginPage.tsx:52-56",
+        "README.md:125"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:05 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-012 --reporter=list |   2 passed (4.4s)",
+      "updatedAt": "2026-10-16T03:35:47.606Z"
+    },
+    {
+      "id": "CHK-UI-013",
+      "title": "End-to-end: sign up, sign out, log in, search, add 2 to cart and place a Cash on Delivery order",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "A brand-new shopper can complete the whole purchase journey in one session, with prices and totals consistent from product page to confirmation.",
+      "risk": "A break anywhere in the core purchase path stops new customers from buying, and no single-area case would show the chained failure.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Fresh browser context (seeded state: signed out, no registered users, no orders, empty cart).",
+        "TEST_NEW_USER_PASSWORD is set (8 to 64 characters)."
+      ],
+      "testData": [
+        "Full name \"QA Tester\".",
+        "Email: generate a unique lowercase value of the form qa.e2e.<timestamp>@shopnest.test and record it (EMAIL).",
+        "Password and confirmation: TEST_NEW_USER_PASSWORD.",
+        "Search query \"Indian Cooking\" (matches only PROD-018 by name; no brand or category name contains it).",
+        "Product PROD-018 Everyday Indian Cooking, price 449, MRP 699, stock 14; quantity 2, so the line total 898 = 2 x 449 crosses the 499 free-delivery threshold that one unit would not (1 unit = 449 + 40 delivery).",
+        "Shipping: phone \"9876543210\", address \"12 MG Road, Indiranagar\", city \"Bengaluru\", state \"Karnataka\", PIN \"560038\"."
+      ],
+      "steps": [
+        "Open /register.",
+        "Fill signup-name \"QA Tester\", signup-email EMAIL, signup-password and signup-confirm-password TEST_NEW_USER_PASSWORD, then click signup-submit.",
+        "Click logout-button.",
+        "Click login-link.",
+        "Fill login-email with EMAIL and login-password with TEST_NEW_USER_PASSWORD, then click login-submit.",
+        "Type \"Indian Cooking\" in product-search and click search-submit.",
+        "Click product-link-PROD-018.",
+        "Select 2 in product-quantity and click add-to-cart-PROD-018.",
+        "Click go-to-cart.",
+        "Click proceed-to-checkout.",
+        "Fill checkout-phone \"9876543210\", checkout-address \"12 MG Road, Indiranagar\", checkout-city \"Bengaluru\", select \"Karnataka\" in checkout-state and fill checkout-postal-code \"560038\".",
+        "Click checkout-submit.",
+        "Click cart-link."
+      ],
+      "expectedResults": [
+        "Step 1: The heading reads \"Create your account\" and signup-form is visible.",
+        "Step 2: The URL becomes /, a toast reads \"Account created. Welcome to ShopNest, QA!\", user-greeting reads \"Hello, QA\" and localStorage shopnest:v1:session has userId \"USR-1001\".",
+        "Step 3: The URL is /, a toast reads \"You have been signed out.\", login-link is visible, user-greeting is not shown and localStorage key shopnest:v1:session is absent.",
+        "Step 4: The URL is /login?redirect=%2F and the heading reads \"Sign in\".",
+        "Step 5: The URL becomes /, a toast reads \"Welcome back, QA!\", user-greeting reads \"Hello, QA\", logout-button is visible, login-link is not shown and shopnest:v1:session has userId \"USR-1001\" and token \"demo-token-USR-1001\".",
+        "Step 6: The URL is /products?q=Indian%20Cooking, listing-heading reads 'Search results for \"Indian Cooking\"', results-count reads \"1 product\" and product-grid contains only product-card-PROD-018.",
+        "Step 7: The URL is /product/PROD-018, product-title reads \"Everyday Indian Cooking\", product-id reads \"PROD-018\", product-price reads \"₹449\" with data-price=\"449\" and product-availability reads \"In stock\".",
+        "Step 8: add-to-cart-success reads \"Added 2 × Everyday Indian Cooking to your cart.\" and cart-count reads \"2\".",
+        "Step 9: The URL is /cart, cart-items contains only cart-item-PROD-018, cart-item-name-PROD-018 reads \"Everyday Indian Cooking\", cart-item-price-PROD-018 has data-amount=\"449\", cart-quantity-PROD-018 has value 2, cart-item-subtotal-PROD-018 reads \"₹898\" with data-amount=\"898\", cart-subtotal reads \"₹898\" with data-amount=\"898\" next to the label \"Subtotal (2 items)\", cart-delivery reads \"FREE\" with data-amount=\"0\", cart-total reads \"₹898\" with data-amount=\"898\", and cart-delivery-note and checkout-login-note are not shown.",
+        "Step 10: The URL is /checkout, checkout-full-name has value \"QA Tester\", checkout-email has value EMAIL, checkout-item-PROD-018 contains \"× 2\", checkout-item-subtotal-PROD-018 reads \"₹898\", checkout-subtotal has data-amount=\"898\", checkout-delivery has data-amount=\"0\", checkout-total has data-amount=\"898\", payment-method contains \"Cash on Delivery\" and checkout-submit reads \"Place order · ₹898\".",
+        "Step 12: The URL becomes /order-confirmation/ORD-100001, order-id reads \"ORD-100001\", a toast reads \"Order ORD-100001 placed successfully.\", order-items contains only order-item-PROD-018 with \"Everyday Indian Cooking × 2 @ ₹449\" and \"₹898\", order-subtotal has data-amount=\"898\", order-delivery reads \"FREE\" with data-amount=\"0\", order-total has data-amount=\"898\" (equal to cart-total in step 9), order-email reads EMAIL, order-shipping-address contains \"QA Tester\", \"12 MG Road, Indiranagar\", \"Bengaluru, Karnataka 560038\" and \"Phone: 9876543210\", and cart-count reads \"0\".",
+        "Step 13: The URL is /cart, empty-cart is visible and cart-count reads \"0\"."
+      ],
+      "references": [
+        "src/pages/RegisterPage.tsx:27-41",
+        "src/services/authService.ts:39-49",
+        "src/services/authService.ts:101-109",
+        "src/components/Header.tsx:47-60",
+        "src/pages/LoginPage.tsx:25-39",
+        "src/lib/redirect.ts:5-10",
+        "src/services/productService.ts:21-26",
+        "src/pages/ProductListPage.tsx:16",
+        "src/data/products.ts:213-222",
+        "src/pages/ProductDetailsPage.tsx:31-41",
+        "src/pages/CartPage.tsx:26-63",
+        "src/components/OrderSummary.tsx:15-49",
+        "src/lib/pricing.ts:4-12",
+        "src/pages/CheckoutPage.tsx:33-50",
+        "src/services/checkoutService.ts:12-28",
+        "src/services/orderService.ts:45-91",
+        "src/pages/OrderConfirmationPage.tsx:10-85"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/chk-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 09:11 UTC+05:30] PASSED via: cd tests/playwright && npx playwright test ui/chk-ui.spec.ts --project=ui --grep CHK-UI-013 --reporter=list |   2 passed (6.8s)",
+      "updatedAt": "2026-10-16T03:41:19.002Z"
+    },
+    {
+      "id": "MOB-UI-001",
+      "title": "Storefront loads on a phone and the header and category navigation are usable",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "Shoppers on a phone can open the store and navigate with touch.",
+      "risk": "A broken mobile header or overflowing layout blocks every mobile shopper.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Run on the mobile-chrome (Pixel 7, Chromium) and mobile-safari (iPhone 14, WebKit) Playwright device projects; viewport below the 640 px breakpoint.",
+        "Fresh browser context, signed out."
+      ],
+      "testData": [
+        "Category \"electronics\" (5 seeded products)."
+      ],
+      "steps": [
+        "Open /.",
+        "Tap category-link-electronics.",
+        "Tap brand-link."
+      ],
+      "expectedResults": [
+        "Step 1: home-page is visible, the page has no horizontal scroll, and brand-link, product-search, search-submit, login-link and cart-link are within the viewport; cart-count reads \"0\".",
+        "Step 2: The URL is /products?category=electronics, listing-heading reads \"Electronics\", results-count reads \"5 products\" and the grid shows 5 cards without horizontal scroll.",
+        "Step 3: The URL is / and home-page is visible."
+      ],
+      "references": [
+        "src/components/Header.tsx",
+        "src/styles/global.css (max-width: 640px)"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/mobile-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 11:05 UTC+05:30] passed via: cd tests/playwright && npm run test:mobile | 17 passed (mobile-chrome 8, mobile-safari 8, setup 1)",
+      "updatedAt": "2026-10-16T05:35:00.000Z"
+    },
+    {
+      "id": "MOB-UI-002",
+      "title": "Header search on a phone returns the matching product only",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "Search works with touch input on small screens.",
+      "risk": "Mobile shoppers cannot find products.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Run on the mobile-chrome (Pixel 7, Chromium) and mobile-safari (iPhone 14, WebKit) Playwright device projects; viewport below the 640 px breakpoint.",
+        "Fresh browser context, signed out."
+      ],
+      "testData": [
+        "Query \"HEAD\" (matches only PROD-001); query \"zzqx\" (no match)."
+      ],
+      "steps": [
+        "Open /, tap product-search, type \"HEAD\" and tap search-submit.",
+        "Replace the query with \"zzqx\" and tap search-submit."
+      ],
+      "expectedResults": [
+        "Step 1: The URL is /products?q=HEAD, listing-heading reads 'Search results for \"HEAD\"', results-count reads \"1 product\" and product-card-PROD-001 is in the viewport; no horizontal scroll.",
+        "Step 2: results-count reads \"0 products\", no-results shows \"No products found\" and product-grid is not present."
+      ],
+      "references": [
+        "src/components/Header.tsx",
+        "src/pages/ProductListPage.tsx"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/mobile-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 11:05 UTC+05:30] passed via: cd tests/playwright && npm run test:mobile | 17 passed (mobile-chrome 8, mobile-safari 8, setup 1)",
+      "updatedAt": "2026-10-16T05:35:00.000Z"
+    },
+    {
+      "id": "MOB-UI-003",
+      "title": "Product listing and product details are usable at phone size",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Listing and details pages work at phone width, including choosing a quantity and adding to the cart.",
+      "risk": "Shoppers cannot view or buy products on a phone.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Run on the mobile-chrome (Pixel 7, Chromium) and mobile-safari (iPhone 14, WebKit) Playwright device projects; viewport below the 640 px breakpoint.",
+        "Fresh browser context, empty cart."
+      ],
+      "testData": [
+        "PROD-001 Wireless Headphones, price 2999; quantity 2."
+      ],
+      "steps": [
+        "Open /products.",
+        "Tap product-link-PROD-001.",
+        "Select 2 in product-quantity and tap add-to-cart-PROD-001."
+      ],
+      "expectedResults": [
+        "Step 1: results-count reads \"24 products\", 24 cards are shown, product-price-PROD-001 has data-price=\"2999\"; no horizontal scroll.",
+        "Step 2: The URL is /product/PROD-001, product-title reads \"Wireless Headphones\", product-price reads \"₹2,999\" and product-availability reads \"In stock\"; no horizontal scroll.",
+        "Step 3: The add button is in the viewport; add-to-cart-success reads \"Added 2 × Wireless Headphones to your cart.\", cart-count reads \"2\" and go-to-cart reads \"Go to cart (2)\"."
+      ],
+      "references": [
+        "src/pages/ProductDetailsPage.tsx"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/mobile-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 11:05 UTC+05:30] passed via: cd tests/playwright && npm run test:mobile | 17 passed (mobile-chrome 8, mobile-safari 8, setup 1)",
+      "updatedAt": "2026-10-16T05:35:00.000Z"
+    },
+    {
+      "id": "MOB-UI-004",
+      "title": "Adding a product on a phone puts it in the cart with the right quantity and totals",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "Add to cart works by touch and the cart totals are correct on a phone.",
+      "risk": "Mobile shoppers cannot buy.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Run on the mobile-chrome (Pixel 7, Chromium) and mobile-safari (iPhone 14, WebKit) Playwright device projects; viewport below the 640 px breakpoint.",
+        "Fresh browser context, empty cart."
+      ],
+      "testData": [
+        "PROD-004 Stainless Steel Water Bottle, price 649."
+      ],
+      "steps": [
+        "Open /products and tap add-to-cart-PROD-004.",
+        "Tap cart-link."
+      ],
+      "expectedResults": [
+        "Step 1: cart-count reads \"1\" and in-cart-PROD-004 reads \"1 in cart\".",
+        "Step 2: The URL is /cart with one line; cart-quantity-PROD-004 has value 1; line subtotal, cart-subtotal and cart-total have data-amount=\"649\"; cart-delivery reads \"FREE\"; no horizontal scroll."
+      ],
+      "references": [
+        "src/pages/CartPage.tsx",
+        "src/lib/pricing.ts"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/mobile-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 11:05 UTC+05:30] passed via: cd tests/playwright && npm run test:mobile | 17 passed (mobile-chrome 8, mobile-safari 8, setup 1)",
+      "updatedAt": "2026-10-16T05:35:00.000Z"
+    },
+    {
+      "id": "MOB-UI-005",
+      "title": "Changing the quantity and removing the item work with touch",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Quantity stepper and Remove work with touch on a phone.",
+      "risk": "Mobile shoppers cannot correct their cart.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Run on the mobile-chrome (Pixel 7, Chromium) and mobile-safari (iPhone 14, WebKit) Playwright device projects; viewport below the 640 px breakpoint.",
+        "Fresh browser context; cart holds PROD-004 x1 (added from /products)."
+      ],
+      "testData": [
+        "PROD-004, price 649."
+      ],
+      "steps": [
+        "On /cart tap cart-increase-PROD-004, then cart-decrease-PROD-004.",
+        "Tap remove-from-cart-PROD-004."
+      ],
+      "expectedResults": [
+        "Step 1: Decrease starts disabled; after + the quantity is 2, line subtotal and cart-total are 1298 and cart-count reads \"2\"; after − the quantity is 1 and cart-total is 649.",
+        "Step 2: A toast reads \"Removed Stainless Steel Water Bottle from your cart.\", empty-cart shows \"Your cart is empty\", cart-count reads \"0\" and the stored cart is empty."
+      ],
+      "references": [
+        "src/components/QuantityControl.tsx",
+        "src/pages/CartPage.tsx"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/mobile-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 11:05 UTC+05:30] passed via: cd tests/playwright && npm run test:mobile | 17 passed (mobile-chrome 8, mobile-safari 8, setup 1)",
+      "updatedAt": "2026-10-16T05:35:00.000Z"
+    },
+    {
+      "id": "MOB-UI-006",
+      "title": "Checkout fields are usable and validation errors are shown on a phone",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Checkout validation is visible and the first invalid field is focused and scrolled into view on a phone.",
+      "risk": "Mobile shoppers cannot see why checkout fails.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Run on the mobile-chrome (Pixel 7, Chromium) and mobile-safari (iPhone 14, WebKit) Playwright device projects; viewport below the 640 px breakpoint.",
+        "Fresh browser context signed in as TEST_USER_EMAIL (seeded Demo User).",
+        "Cart holds PROD-004 x1."
+      ],
+      "testData": [
+        "Phone \"5876543210\", PIN \"060001\", empty full name."
+      ],
+      "steps": [
+        "Open /checkout.",
+        "Enter phone \"5876543210\" and PIN \"060001\", moving focus away after each.",
+        "Clear checkout-full-name and tap checkout-submit."
+      ],
+      "expectedResults": [
+        "Step 1: checkout-form is visible; user-greeting is hidden on the narrow screen while logout-button stays visible; no horizontal scroll.",
+        "Step 2: checkout-phone-error reads \"Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9.\" and checkout-postal-code-error reads \"Enter a valid 6-digit PIN code.\".",
+        "Step 3: checkout-error-summary reads \"Please correct the highlighted fields before placing your order.\", checkout-full-name-error reads \"Full name is required.\", checkout-full-name is focused and in the viewport, the URL stays /checkout and no order is stored."
+      ],
+      "references": [
+        "src/pages/CheckoutPage.tsx",
+        "src/lib/validation.ts"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/mobile-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 11:05 UTC+05:30] passed via: cd tests/playwright && npm run test:mobile | 17 passed (mobile-chrome 8, mobile-safari 8, setup 1)",
+      "updatedAt": "2026-10-16T05:35:00.000Z"
+    },
+    {
+      "id": "MOB-UI-007",
+      "title": "Complete the simulated Cash on Delivery checkout on a phone",
+      "layer": "UI",
+      "priority": "P0",
+      "objective": "A shopper can place a (simulated) order end to end on a phone.",
+      "risk": "Mobile shoppers cannot complete purchases.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Run on the mobile-chrome (Pixel 7, Chromium) and mobile-safari (iPhone 14, WebKit) Playwright device projects; viewport below the 640 px breakpoint.",
+        "Fresh browser context signed in as TEST_USER_EMAIL (seeded Demo User).",
+        "Cart holds PROD-017 x1 (price 349)."
+      ],
+      "testData": [
+        "Valid shipping details generated with Faker (seeded per test)."
+      ],
+      "steps": [
+        "Tap proceed-to-checkout.",
+        "Fill the shipping details and tap checkout-submit."
+      ],
+      "expectedResults": [
+        "Step 1: checkout-subtotal 349, checkout-delivery 40, checkout-total 389; checkout-submit reads \"Place order · ₹389\".",
+        "Step 2: The URL is /order-confirmation/ORD-100001, order-id reads \"ORD-100001\" in the viewport, order-item-PROD-017 is shown, order-total is 389, the shipping address shows the entered details and cart-count reads \"0\"."
+      ],
+      "references": [
+        "src/pages/CheckoutPage.tsx",
+        "src/pages/OrderConfirmationPage.tsx"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/mobile-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 11:05 UTC+05:30] passed via: cd tests/playwright && npm run test:mobile | 17 passed (mobile-chrome 8, mobile-safari 8, setup 1)",
+      "updatedAt": "2026-10-16T05:35:00.000Z"
+    },
+    {
+      "id": "MOB-UI-008",
+      "title": "Back, reload and Forward on a phone keep the cart and the checkout draft",
+      "layer": "UI",
+      "priority": "P1",
+      "objective": "Browser navigation on a phone never loses the cart or the typed checkout draft.",
+      "risk": "Mobile shoppers lose their cart or typed details when navigating.",
+      "preconditions": [
+        "App running at BASE_URL.",
+        "Run on the mobile-chrome (Pixel 7, Chromium) and mobile-safari (iPhone 14, WebKit) Playwright device projects; viewport below the 640 px breakpoint.",
+        "Fresh browser context signed in as TEST_USER_EMAIL (seeded Demo User).",
+        "Cart holds PROD-004 x2."
+      ],
+      "testData": [
+        "Phone \"9876543210\"."
+      ],
+      "steps": [
+        "Tap proceed-to-checkout and type the phone number.",
+        "Press Back, then reload the cart.",
+        "Press Forward."
+      ],
+      "expectedResults": [
+        "Step 2: The URL is /cart, cart-quantity-PROD-004 is 2 before and after the reload, cart-count reads \"2\" and the stored cart is [{PROD-004, 2}].",
+        "Step 3: The URL is /checkout, checkout-phone keeps \"9876543210\", checkout-item-PROD-004 is shown and checkout-total is 1298."
+      ],
+      "references": [
+        "src/services/checkoutService.ts",
+        "src/services/cartService.ts"
+      ],
+      "automationTarget": "Playwright",
+      "automationStatus": "automated",
+      "scriptPath": "tests/playwright/ui/mobile-ui.spec.ts",
+      "latestResult": "passed",
+      "lastExecuted": "2026-10-16",
+      "notes": "[2026-10-16 11:05 UTC+05:30] passed via: cd tests/playwright && npm run test:mobile | 17 passed (mobile-chrome 8, mobile-safari 8, setup 1)",
+      "updatedAt": "2026-10-16T05:35:00.000Z"
+    }
+  ]
+}
