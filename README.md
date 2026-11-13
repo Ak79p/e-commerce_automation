@@ -1,103 +1,194 @@
-# ShopNest — E-commerce Test Automation
+# ShopNest – E-commerce Test Automation Framework
 
-ShopNest is a browser-only React + TypeScript (Vite) demo store. Its accounts, cart and orders are mocked in
-`localStorage`, and the only payment method is a simulated Cash on Delivery. This repository contains the app and
-an end-to-end test suite (Playwright + TypeScript) in `tests/playwright`. It covers desktop Chrome and mobile
-browsers, using Playwright device emulation of a Pixel 7 (Chromium) and an iPhone 14 (WebKit).
+An end-to-end test automation framework built with Playwright Test and TypeScript. It validates e-commerce workflows across desktop and emulated mobile browsers.
+
+## Project Overview
+
+ShopNest is a React + Vite demo store with mocked services. Accounts, sessions, carts and orders live in the browser's `localStorage`, and the only payment method is a simulated Cash on Delivery. There is no real backend or payment gateway.
+
+The framework under `tests/playwright/` validates sign-up and sign-in, search, product browsing, cart, checkout, navigation and mobile layouts. It uses a layered design (specs → fixtures → workflows → page objects) so that locators and business steps live in one place and specs stay readable.
+
+## Technology Stack
+
+| Area | Technology |
+|---|---|
+| Language | TypeScript |
+| Automation | Playwright Test |
+| Application | React, React Router, Vite |
+| Test data | Faker.js (`@faker-js/faker`) |
+| Containerisation | Docker (official Playwright image) |
+| CI/CD | GitHub Actions |
+| Test management | Dependency-free Node.js test catalogue (`test-manager/`) |
+
+## Framework Architecture
+
+```mermaid
+flowchart TD
+    Specs["Test specs (ui/*.spec.ts)<br/>stable IDs, tags, test.step"] --> Fixtures["Custom fixtures (fixtures/index.ts)<br/>test + expect"]
+    Fixtures --> Workflows["Workflows<br/>Auth, Shopping, Cart, Checkout"]
+    Fixtures --> Pages["Page objects<br/>screens + Header, Toast components"]
+    Fixtures --> Support["Support layer<br/>env config, seeded Faker data,<br/>redacting logger, storage state"]
+    Workflows --> Pages
+    Setup["Setup project<br/>auth.setup.ts"] -->|saves storage state| Support
+    Pages --> Browsers["Browser projects<br/>Desktop Chrome · Pixel 7 (Chromium) · iPhone 14 (WebKit)"]
+    Browsers --> App["ShopNest app (Vite dev server)<br/>mocked services in localStorage"]
+```
+
+| Layer | Responsibility |
+|---|---|
+| Test specs | Scenarios with stable IDs (e.g. `CHK-UI-013`), tags (`@smoke`, `@mobile`, …) and numbered `test.step` blocks. |
+| Custom fixtures | One `test`/`expect` export that injects page objects, workflows, seeded test data and a per-test logger. |
+| Page objects | Locators and UI interactions per screen, plus reusable `HeaderComponent` and `ToastRegion`. |
+| Workflows | Business operations composed from page objects; each waits for the resulting app state. |
+| Support | Environment config, storage-state presets, `localStorage` readers, layout checks, redacting logger. |
+
+## Framework Features
+
+| Feature | Implementation |
+|---|---|
+| **Page Object Model** | One class per screen in `pages/` (login, register, listing, product, cart, checkout, confirmation, orders) plus header and toast components. Specs never declare raw locators; they use `data-testid` via page objects. |
+| **Workflow layer** | `AuthWorkflow`, `ShoppingWorkflow`, `CartWorkflow` and `CheckoutWorkflow` combine page objects into business steps and synchronise with web-first assertions (for example, sign-up resolves once the header greets the new user). |
+| **Custom fixtures** | `fixtures/index.ts` extends Playwright's `test`. Specs request what they need (`async ({ cart, checkoutPage, data, log }) => …`) and Playwright builds it lazily for that test only. |
+| **Authentication state** | A `setup` project signs in the seeded Demo User through the real login form and saves the storage state. Desktop and mobile projects depend on it. Tests start signed out and opt in with `test.use(signedIn)`. |
+| **Test data** | A Faker instance per test, seeded from the test title or from `FAKER_SEED`, so data is reproducible. The seed is written to the test log. Builders create unique registration users and Indian shipping addresses. |
+| **Mobile emulation** | `mobile-chrome` (Pixel 7, Chromium) and `mobile-safari` (iPhone 14, WebKit) run `@mobile` tests with touch input. These are Playwright device profiles, not physical devices. Optional desktop Firefox/WebKit via `PW_CROSS_BROWSER=true`. |
+| **Isolation and parallelism** | Every test gets a new browser context, and all app state lives in that context's `localStorage`. Tests set up their own preconditions, so they run `fullyParallel` against one dev server. |
+| **Logging and reporting** | HTML and JSON reports; screenshots, videos and traces kept for failures. A per-test log (`test-log.txt`) is attached to the report, with sensitive keys such as passwords and tokens redacted. `report:summary` prints pass/fail per project. |
+| **Docker** | A self-contained image based on the official Playwright image. Credentials are passed at runtime with `--env-file` and are never baked in. |
+| **CI/CD** | Smoke tests on every pull request and push to `main`; a sharded regression run with merged HTML/JSON reports and uploaded artifacts. |
+
+## Project Structure
+
+```text
+e-commerce_automation/
+├── src/                          # ShopNest React application (seed data in src/data/)
+├── public/
+├── tests/playwright/
+│   ├── config/env.ts             # the only reader of environment variables
+│   ├── fixtures/                 # custom test/expect
+│   ├── pages/                    # page objects and components
+│   ├── workflows/                # business workflows
+│   ├── support/                  # auth state, localStorage readers, logger, layout checks
+│   ├── test-data/                # Faker builders, product and checkout constants
+│   ├── setup/auth.setup.ts       # signs in once and saves storage state
+│   ├── ui/                       # specs: auth, srch, prod, cart, chk, nav, mobile
+│   ├── scripts/                  # summarize-results.mjs
+│   ├── .env.example
+│   └── playwright.config.ts
+├── test-manager/                 # test case catalogue (web UI + CLI)
+├── .github/workflows/            # smoke.yml, regression.yml
+├── Dockerfile
+└── package.json
+```
 
 ## Prerequisites
 
-- **Option A (local):** Node.js 20.19+ or 22.12+, npm 10+, Git.
-- **Option B (Docker):** Docker only.
+| Requirement | Needed for |
+|---|---|
+| Node.js 20.19+ or 22.12+, npm 10+ | Required |
+| Git | Required |
+| Chromium and WebKit (installed by Playwright) | Required |
+| Docker | Optional: containerised runs only |
 
-The tests sign in with the app's seeded demo shopper ("Demo User" in `src/data/users.ts`). Its email and password
-are supplied through `tests/playwright/.env` locally, and through repository secrets in CI. They are never hardcoded in
-the test code.
+## Installation and Setup
 
-## Option A — Local installation and execution
+```bash
+# 1. Clone (any directory)
+git clone https://github.com/Ak79p/e-commerce_automation.git
+cd e-commerce_automation
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Ak79p/e-commerce_automation.git
-   cd e-commerce_automation
-   ```
-2. Install the app's dependencies *(repository root)*:
-   ```bash
-   npm ci
-   ```
-3. Install the test dependencies and the browsers *(from `tests/playwright`)*:
-   ```bash
-   cd tests/playwright
-   npm ci
-   npx playwright install --with-deps chromium webkit
-   ```
-   On Windows and macOS, `npx playwright install chromium webkit` is enough.
-4. Configure the environment *(in `tests/playwright`)*:
-   ```bash
-   cp .env.example .env
-   ```
-   Then set `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` in `.env` to the seeded Demo User's values from
-   `src/data/users.ts`. Every other setting has a working default.
-5. Run the tests *(in `tests/playwright`)*. Playwright starts the app (`npm run dev` on port 5173) automatically,
-   or reuses one that's already running.
+# 2. Install application dependencies (repository root)
+npm ci
 
-   | Task | Command |
-   | --- | --- |
-   | Smoke tests (desktop + mobile) | `npm run test:smoke` |
-   | Full regression (desktop + mobile) | `npm test` |
-   | Mobile tests only | `npm run test:mobile` |
-   | Desktop tests only | `npm run test:desktop` |
-   | Headed (watch the browser) | `npm run test:headed` |
-   | Debug one test step by step | `npm run test:debug -- --grep CHK-UI-013` |
-   | Open the HTML report | `npm run report` |
+# 3. Install test dependencies (tests/playwright)
+cd tests/playwright
+npm ci
 
-   Reports, traces, screenshots and videos are written to `tests/playwright/artifacts/`.
-   `npm run report:summary` prints the passed and failed counts per project (desktop / mobile).
+# 4. Install browsers (tests/playwright)
+npx playwright install chromium webkit                # macOS / Windows
+npx playwright install --with-deps chromium webkit    # Linux (also installs OS packages)
 
-## Option B — Docker
+# 5. Create the test environment file (tests/playwright)
+cp .env.example .env
 
-Run these from the repository root. The image includes Node, the app, the test dependencies and the browsers, but
-no credentials. Create `tests/playwright/.env` first (Option A, step 4); `--env-file` passes it to the container.
+# 6. Verify: list every discovered test (tests/playwright)
+npm run test:list
+```
 
-1. Build the image:
-   ```bash
-   docker build -t shopnest-tests .
-   ```
-2. Run the smoke tests:
-   ```bash
-   docker run --rm --env-file tests/playwright/.env -v "$(pwd)/artifacts:/app/tests/playwright/artifacts" shopnest-tests
-   ```
-3. Run the full regression suite:
-   ```bash
-   docker run --rm --env-file tests/playwright/.env -v "$(pwd)/artifacts:/app/tests/playwright/artifacts" shopnest-tests npm test
-   ```
-   To run only the mobile tests, end the command with `npm run test:mobile` instead.
-4. Open `artifacts/html-report/index.html` on the host. `artifacts/results.json` holds the JSON results, and
-   `artifacts/test-results/` holds the traces, screenshots and videos of failed tests.
+From the repository root, step 5 is `cp tests/playwright/.env.example tests/playwright/.env`. In `.env`, set `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` to the seeded Demo User account (`USR-0001` in `src/data/users.ts`). All other settings (`BASE_URL`, `PW_WORKERS`, `FAKER_SEED`, `PW_LOG`, …) have working defaults. `.env` is git-ignored; never commit it.
 
-In PowerShell, use `${PWD}` instead of `$(pwd)`.
+You don't need to start the app. Playwright's `webServer` runs `npm run dev` on port 5173, or reuses a server that is already running (`PW_START_SERVER=false` disables this).
 
-## Troubleshooting
+## Running Tests
 
-| Problem | Fix |
-| --- | --- |
-| `Missing environment variable TEST_USER_EMAIL` | Create `tests/playwright/.env` (step 4). In CI, add the `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` repository secrets. |
-| `Executable doesn't exist … chromium` or `… webkit` | Run `npx playwright install chromium webkit` in `tests/playwright`. |
-| `Port 5173 is already in use` / webServer timeout | Stop the other process on 5173, or set `BASE_URL` (and `PW_START_SERVER=false` if you start the app yourself). |
-| Tests fail only when two runs overlap | Don't start two `playwright test` runs in the same folder at once; they share `artifacts/`. Set a different `PW_ARTIFACTS_DIR` for each run. |
-| Docker volume path errors on Windows (Git Bash) | Prefix the command with `MSYS_NO_PATHCONV=1` and use `"$(pwd -W)/artifacts:/app/tests/playwright/artifacts"`. |
-| `npm ci` fails | Use Node 20.19+ or 22.12+, and run it in the directory that holds the matching `package-lock.json`. |
+Run all commands from `tests/playwright/`.
 
-## Test case manager
+| Purpose | Command |
+|---|---|
+| Full regression (desktop + both mobile projects) | `npm test` |
+| Smoke suite (`@smoke` tag, desktop + mobile) | `npm run test:smoke` |
+| Desktop Chrome only | `npm run test:desktop` |
+| Mobile emulation only (Pixel 7 + iPhone 14) | `npm run test:mobile` |
+| Headed desktop run, one worker | `npm run test:headed` |
+| Debug with Playwright Inspector | `npm run test:debug -- --grep CHK-UI-013` |
+| Playwright UI mode | `npm run test:ui-mode` |
+| List tests | `npm run test:list` |
+| TypeScript check | `npm run typecheck` |
+| Open the HTML report | `npm run report` |
+| Pass/fail summary per project | `npm run report:summary` |
 
-`test-manager/` is a small local web app (Node 18+, no dependencies) for browsing, adding and tracking the test
-cases. Its catalogue is `test-manager/data/catalogue.json`.
+To run one test case by its stable ID: `npx playwright test --grep CHK-UI-013`.
+
+## Reports and Debugging
+
+```text
+tests/playwright/artifacts/
+├── html-report/      # open with: npm run report
+├── results.json      # machine-readable results
+├── test-results/     # screenshots, videos and traces of failed tests
+└── .auth/            # saved Demo User session from the setup project (keep private)
+```
+
+To inspect a failed test's trace: `npx playwright show-trace artifacts/test-results/<test-folder>/trace.zip`. Traces are also linked from the HTML report. Set `PW_ARTIFACTS_DIR` to write a run's output elsewhere.
+
+## Docker Execution
+
+Run from the repository root after creating `tests/playwright/.env`. Reports are written to `./artifacts` on the host.
+
+```bash
+docker build -t shopnest-tests .
+
+# Smoke suite (the image's default command)
+docker run --rm --env-file tests/playwright/.env -v "$(pwd)/artifacts:/app/tests/playwright/artifacts" shopnest-tests
+
+# Full regression
+docker run --rm --env-file tests/playwright/.env -v "$(pwd)/artifacts:/app/tests/playwright/artifacts" shopnest-tests npm test
+```
+
+In PowerShell, replace `$(pwd)` with `${PWD}`. In Git Bash on Windows, prefix the command with `MSYS_NO_PATHCONV=1` and use `$(pwd -W)`.
+
+## CI/CD – GitHub Actions
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `smoke.yml` | Pull requests, pushes to `main`, manual | Runs `npm run test:smoke` on desktop and mobile projects, writes a per-project summary to the job, and uploads the report and failure artifacts (excluding the saved session). |
+| `regression.yml` | Pushes to `main`, manual | Runs `npm test` in parallel shards (4 by default, configurable on manual runs), merges the blob reports into one HTML/JSON report, and uploads the merged report and per-shard failure artifacts. |
+
+Both workflows require the repository secrets `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` and fail early if they are missing.
+
+## Test Case Manager
+
+`test-manager/` is a local, dependency-free web app and CLI for the test catalogue in `test-manager/data/catalogue.json`. Each case has a permanent ID (for example `CART-UI-003`) that matches the spec title, which links the catalogue to the automated test. You can search and filter cases, view the full procedure, and track automation status and latest results.
 
 ```bash
 cd test-manager
-npm start        # → http://127.0.0.1:5180  ("Add test case" saves to data/catalogue.json)
+npm start                                       # http://127.0.0.1:5180
+node scripts/case.mjs placement CART-UI-001     # spec file, tags and run command for a case
 ```
 
-CI needs the repository secrets `TEST_USER_EMAIL` and `TEST_USER_PASSWORD`. `.github/workflows/smoke.yml` runs the smoke tests on pull requests and pushes to `main`.
-`.github/workflows/regression.yml` runs the full suite in parallel shards and publishes one merged report. Test
-framework details are in [`tests/playwright/README.md`](tests/playwright/README.md).
+See [`test-manager/README.md`](test-manager/README.md) for the API and data model, and [`tests/playwright/README.md`](tests/playwright/README.md) for framework conventions.
+
+## Future Improvements
+
+- Automate the catalogue cases still marked `planned`.
+- The catalogue schema already supports API (Playwright) and Performance (k6) layers, but no API or k6 suites exist yet.
